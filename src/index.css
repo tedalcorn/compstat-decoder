@@ -1,13 +1,14 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
-}
+**Step 5: Test locally.** In Terminal: `npm start`. A browser window should open showing your dashboard. If the charts render and you can toggle Weekly/Yearly, you're good.
+
+**Step 6: Push to GitHub.** Create a new repo on github.com (call it `compstat-ledger` or whatever). Then in Terminal:
+```
+git init
+git add .
+git commit -m "initial"
+git remote add origin https://github.com/joshgreenman1973/compstat-ledger.git
+git push -u origin main
