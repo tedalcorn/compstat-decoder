@@ -199,7 +199,6 @@ const TrendingDown = (p) => <Icon {...p}><polyline points="22 17 13.5 8.5 8.5 13
 const ChevronDown = (p) => <Icon {...p}><polyline points="6 9 12 15 18 9"/></Icon>;
 const Target = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></Icon>;
 const Activity = (p) => <Icon {...p}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></Icon>;
-const AlertCircle = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></Icon>;
 const MapPin = (p) => <Icon {...p}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></Icon>;
 const Info = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></Icon>;
 const Users = (p) => <Icon {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></Icon>;
@@ -324,7 +323,7 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData }) => {
   }, [activeGeo, activeTab]);
 
   const buildContext = () => {
-    const { totals, all, driver, historicAnchor, localAnomaly, localBrightSpot, topSurge, topDrop } = parsedData;
+    const { totals, all, driver, localAnomaly, localBrightSpot } = parsedData;
     const periodStr = `${period?.week_start || ''} – ${period?.week_end || ''}`;
     const timeLabel = activeTab === 'ytd' ? 'year-to-date' : 'week-to-date';
     const geoLabel = activeGeo === 'citywide' ? 'Citywide (all of NYC)' : formatGeoName(activeGeo);
@@ -731,7 +730,6 @@ export default function App() {
         cards.push({ id: 'driver', icon: Target, title: 'Primary Driver', content: driverShareText });
       }
       
-      // NEW HISTORICAL CARD ADDED HERE
       const peakTotal = CW[0].BU + CW[0].FA + CW[0].GA + CW[0].GL + CW[0].MU + CW[0].RA + CW[0].RO;
       const curTotal = CW[CW.length - 1].BU + CW[CW.length - 1].FA + CW[CW.length - 1].GA + CW[CW.length - 1].GL + CW[CW.length - 1].MU + CW[CW.length - 1].RA + CW[CW.length - 1].RO;
       const overallDrop = (((peakTotal - curTotal) / peakTotal) * 100).toFixed(0);
