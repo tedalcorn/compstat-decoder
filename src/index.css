@@ -1,10 +1,3 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-```
-
-Save it. Then in Terminal:
-```
-git add .
-git commit -m "add tailwind"
-git push
