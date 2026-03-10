@@ -42,87 +42,105 @@ const CW = [
 
 const MA_CW = {2000:57304,2001:57753,2002:52469,2003:51298,2004:52158,2005:52408,2006:52169,2007:51429,2008:50310,2009:50216,2010:52716,2011:50972,2012:54495,2013:53738,2014:53847,2015:42654,2016:42422,2017:41665,2018:43126,2019:42529,2020:33400,2021:36553,2022:41161,2023:44151,2024:47738};
 
+// Multiplied by 10 to shift from /10k to /100k
+const BP = [
+  {y:1993,Bx:5385,Bk:5413,Mn:7688,Qn:5168,SI:3160},
+  {y:1997,Bx:3010,Bk:2877,Mn:4193,Qn:2799,SI:1670},
+  {y:2001,Bx:2019,Bk:2014,Mn:2837,Qn:1702,SI:907},
+  {y:2005,Bx:1715,Bk:1665,Mn:2362,Qn:1300,SI:767},
+  {y:2009,Bx:1444,Bk:1308,Mn:1799,Qn:1042,SI:645},
+  {y:2013,Bx:1474,Bk:1398,Mn:1735,Qn:1056,SI:726},
+  {y:2017,Bx:1410,Bk:1093,Mn:1622,Qn:839,SI:588},
+  {y:2019,Bx:1365,Bk:1062,Mn:1694,Qn:829,SI:510},
+  {y:2021,Bx:1611,Bk:1063,Mn:1718,Qn:916,SI:524},
+  {y:2023,Bx:2057,Bk:1206,Mn:2051,Qn:1161,SI:763},
+  {y:2025,Bx:2104,Bk:1157,Mn:1872,Qn:1111,SI:703},
+];
+
+// Multiplied by 10 to shift from /10k to /100k
 const PC = [
-  {n:'100th',pov:13.9,fa:19.3,ma:46.7,ta:66.0,fs:29.3,sh:0.9,ha:101.2,pl:82.1,gl:24.5},
-  {n:'101st',pov:20.7,fa:49.3,ma:72.5,ta:121.8,fs:40.5,sh:1.5,ha:156.0,pl:117.1,gl:24.4},
-  {n:'102nd',pov:11.1,fa:20.8,ma:40.0,ta:60.8,fs:34.2,sh:0.2,ha:70.3,pl:82.0,gl:22.4},
-  {n:'103rd',pov:13.8,fa:65.6,ma:88.1,ta:153.7,fs:42.7,sh:0.8,ha:155.9,pl:174.9,gl:52.1},
-  {n:'104th',pov:10.4,fa:16.0,ma:34.0,ta:50.0,fs:32.0,sh:0.2,ha:61.3,pl:73.1,gl:38.0},
-  {n:'105th',pov:7.9,fa:11.4,ma:20.2,ta:31.6,fs:36.1,sh:0.0,ha:47.1,pl:34.8,gl:20.6},
-  {n:'106th',pov:9.4,fa:26.1,ma:47.5,ta:73.6,fs:35.5,sh:0.4,ha:73.0,pl:90.3,gl:40.4},
-  {n:'107th',pov:12.4,fa:15.7,ma:34.2,ta:49.9,fs:31.4,sh:0.2,ha:59.1,pl:63.9,gl:36.8},
-  {n:'108th',pov:9.3,fa:23.5,ma:44.0,ta:67.5,fs:34.8,sh:0.1,ha:82.2,pl:124.5,gl:63.8},
-  {n:'109th',pov:14.2,fa:15.7,ma:37.8,ta:53.5,fs:29.4,sh:0.3,ha:60.0,pl:104.6,gl:41.9},
-  {n:'10th',pov:11.6,fa:28.7,ma:58.4,ta:87.1,fs:33.0,sh:0.4,ha:107.3,pl:158.5,gl:115.5},
-  {n:'110th',pov:13.9,fa:34.9,ma:62.3,ta:97.2,fs:35.9,sh:0.5,ha:66.9,pl:134.9,gl:43.5},
-  {n:'111th',pov:7.7,fa:10.0,ma:18.6,ta:28.6,fs:35.0,sh:0.2,ha:49.7,pl:43.2,gl:42.6},
-  {n:'112th',pov:8.6,fa:13.7,ma:26.2,ta:39.9,fs:34.4,sh:0.1,ha:62.7,pl:160.7,gl:34.8},
-  {n:'113th',pov:10.7,fa:28.2,ma:53.7,ta:81.9,fs:34.4,sh:0.8,ha:91.5,pl:80.6,gl:32.6},
-  {n:'114th',pov:12.3,fa:28.6,ma:49.3,ta:77.9,fs:36.7,sh:0.6,ha:102.9,pl:128.7,gl:50.9},
-  {n:'115th',pov:14.5,fa:32.8,ma:66.2,ta:99.0,fs:33.1,sh:0.1,ha:57.8,pl:85.4,gl:44.9},
-  {n:'120th',pov:14.6,fa:36.5,ma:72.6,ta:109.1,fs:33.4,sh:0.8,ha:139.2,pl:100.0,gl:29.7},
-  {n:'121st',pov:12.6,fa:19.3,ma:47.8,ta:67.1,fs:28.8,sh:0.1,ha:106.1,pl:103.2,gl:33.1},
-  {n:'122nd',pov:8.3,fa:17.9,ma:26.3,ta:44.2,fs:40.4,sh:0.1,ha:76.1,pl:70.3,gl:29.0},
-  {n:'123rd',pov:5.8,fa:9.4,ma:22.2,ta:31.6,fs:29.8,sh:0.0,ha:60.5,pl:40.2,gl:28.0},
-  {n:'13th',pov:10.3,fa:30.5,ma:65.6,ta:96.1,fs:31.7,sh:0.1,ha:91.1,pl:311.9,gl:133.7},
-  {n:'14th',pov:14.3,fa:213.1,ma:452.5,ta:665.6,fs:32.0,sh:1.2,ha:407.1,pl:1623.3,gl:681.5},
-  {n:'17th',pov:6.7,fa:12.7,ma:26.6,ta:39.3,fs:32.3,sh:0.0,ha:64.3,pl:128.6,gl:75.6},
-  {n:'18th',pov:11.3,fa:50.7,ma:114.1,ta:164.8,fs:30.8,sh:0.7,ha:159.2,pl:378.2,gl:266.5},
-  {n:'19th',pov:7.0,fa:10.4,ma:19.4,ta:29.8,fs:35.0,sh:0.0,ha:48.8,pl:140.0,gl:80.2},
-  {n:'1st',pov:5.5,fa:20.4,ma:59.8,ta:80.2,fs:25.4,sh:0.0,ha:87.4,pl:451.5,gl:158.9},
-  {n:'20th',pov:8.6,fa:9.2,ma:25.4,ta:34.6,fs:26.6,sh:0.1,ha:63.6,pl:135.3,gl:68.6},
-  {n:'23rd',pov:30.6,fa:59.7,ma:87.5,ta:147.2,fs:40.6,sh:1.7,ha:174.9,pl:129.7,gl:62.6},
-  {n:'24th',pov:12.4,fa:17.5,ma:33.0,ta:50.5,fs:34.7,sh:0.3,ha:65.4,pl:161.1,gl:48.9},
-  {n:'25th',pov:34.1,fa:70.0,ma:128.8,ta:198.8,fs:35.2,sh:1.3,ha:220.1,pl:157.3,gl:77.1},
-  {n:'26th',pov:25.5,fa:32.6,ma:51.1,ta:83.7,fs:39.0,sh:1.0,ha:106.9,pl:89.0,gl:75.7},
-  {n:'28th',pov:20.5,fa:47.3,ma:87.9,ta:135.2,fs:35.0,sh:1.7,ha:145.0,pl:276.6,gl:79.2},
-  {n:'30th',pov:22.4,fa:25.9,ma:59.5,ta:85.4,fs:30.3,sh:0.3,ha:122.9,pl:112.7,gl:54.7},
-  {n:'32nd',pov:25.5,fa:56.6,ma:87.9,ta:144.5,fs:39.2,sh:2.1,ha:185.2,pl:118.3,gl:48.2},
-  {n:'33rd',pov:21.0,fa:31.5,ma:46.6,ta:78.1,fs:40.3,sh:0.5,ha:78.0,pl:100.7,gl:44.5},
-  {n:'34th',pov:15.1,fa:26.5,ma:52.6,ta:79.1,fs:33.5,sh:0.7,ha:62.2,pl:116.1,gl:48.4},
-  {n:'40th',pov:39.0,fa:102.4,ma:131.2,ta:233.6,fs:43.8,sh:2.8,ha:221.9,pl:194.7,gl:95.0},
-  {n:'41st',pov:31.4,fa:99.7,ma:124.3,ta:224.0,fs:44.5,sh:2.1,ha:197.7,pl:148.5,gl:65.3},
-  {n:'42nd',pov:36.1,fa:90.7,ma:112.4,ta:203.1,fs:44.7,sh:3.4,ha:237.6,pl:135.1,gl:66.7},
-  {n:'43rd',pov:26.0,fa:45.6,ma:67.2,ta:112.8,fs:40.4,sh:1.8,ha:111.8,pl:116.5,gl:61.3},
-  {n:'44th',pov:33.1,fa:66.5,ma:90.8,ta:157.3,fs:42.3,sh:1.7,ha:138.8,pl:116.2,gl:50.0},
-  {n:'45th',pov:14.4,fa:29.2,ma:47.3,ta:76.5,fs:38.2,sh:0.9,ha:96.0,pl:103.7,gl:62.6},
-  {n:'46th',pov:33.8,fa:67.1,ma:87.3,ta:154.4,fs:43.4,sh:1.7,ha:118.0,pl:72.7,gl:49.8},
-  {n:'47th',pov:19.4,fa:62.0,ma:80.4,ta:142.4,fs:43.5,sh:1.9,ha:124.4,pl:90.5,gl:60.9},
-  {n:'48th',pov:38.9,fa:84.4,ma:127.7,ta:212.1,fs:39.8,sh:3.2,ha:207.4,pl:154.5,gl:70.2},
-  {n:'49th',pov:17.5,fa:46.0,ma:59.0,ta:105.0,fs:43.8,sh:0.7,ha:116.1,pl:152.7,gl:68.7},
-  {n:'50th',pov:16.8,fa:21.6,ma:39.2,ta:60.8,fs:35.5,sh:0.7,ha:92.3,pl:107.7,gl:53.3},
-  {n:'52nd',pov:26.3,fa:66.4,ma:71.4,ta:137.8,fs:48.2,sh:1.0,ha:116.9,pl:122.8,gl:63.7},
-  {n:'5th',pov:23.3,fa:64.5,ma:94.6,ta:159.1,fs:40.5,sh:0.2,ha:134.6,pl:269.4,gl:154.2},
-  {n:'60th',pov:25.3,fa:41.4,ma:79.7,ta:121.1,fs:34.2,sh:1.0,ha:103.8,pl:99.1,gl:40.6},
-  {n:'61st',pov:15.3,fa:18.1,ma:33.6,ta:51.7,fs:34.9,sh:0.3,ha:53.9,pl:68.1,gl:34.8},
-  {n:'62nd',pov:18.4,fa:12.9,ma:37.7,ta:50.6,fs:25.5,sh:0.1,ha:53.8,pl:78.4,gl:30.9},
-  {n:'63rd',pov:10.0,fa:14.5,ma:32.1,ta:46.6,fs:31.1,sh:0.5,ha:87.8,pl:118.2,gl:46.1},
-  {n:'66th',pov:25.0,fa:11.8,ma:22.7,ta:34.5,fs:34.2,sh:0.0,ha:38.8,pl:50.3,gl:24.4},
-  {n:'67th',pov:14.8,fa:48.3,ma:63.8,ta:112.1,fs:43.1,sh:1.9,ha:169.4,pl:76.6,gl:44.8},
-  {n:'68th',pov:14.1,fa:11.4,ma:33.3,ta:44.7,fs:25.6,sh:0.0,ha:49.6,pl:75.3,gl:29.2},
-  {n:'69th',pov:13.1,fa:27.1,ma:41.3,ta:68.4,fs:39.6,sh:1.2,ha:101.8,pl:64.2,gl:33.7},
-  {n:'6th',pov:6.8,fa:25.9,ma:62.8,ta:88.7,fs:29.2,sh:0.5,ha:65.2,pl:257.8,gl:184.1},
-  {n:'70th',pov:15.3,fa:26.8,ma:42.6,ta:69.4,fs:38.7,sh:0.7,ha:69.3,pl:89.1,gl:28.6},
-  {n:'71st',pov:18.2,fa:42.5,ma:55.5,ta:98.0,fs:43.3,sh:1.1,ha:107.0,pl:93.0,gl:33.0},
-  {n:'72nd',pov:17.0,fa:23.6,ma:47.0,ta:70.6,fs:33.4,sh:0.3,ha:45.8,pl:59.6,gl:29.3},
-  {n:'73rd',pov:33.1,fa:88.4,ma:119.5,ta:207.9,fs:42.5,sh:3.6,ha:203.6,pl:137.1,gl:52.0},
-  {n:'75th',pov:23.2,fa:52.6,ma:78.4,ta:131.0,fs:40.1,sh:1.8,ha:153.0,pl:128.4,gl:45.2},
-  {n:'76th',pov:13.4,fa:23.2,ma:42.1,ta:65.3,fs:35.5,sh:0.6,ha:83.0,pl:91.3,gl:40.3},
-  {n:'77th',pov:18.1,fa:45.5,ma:48.1,ta:93.6,fs:48.6,sh:1.4,ha:116.1,pl:84.5,gl:44.7},
-  {n:'78th',pov:5.8,fa:20.8,ma:34.2,ta:55.0,fs:37.8,sh:0.7,ha:62.0,pl:161.2,gl:53.7},
-  {n:'79th',pov:27.8,fa:44.3,ma:57.3,ta:101.6,fs:43.6,sh:1.5,ha:127.4,pl:134.6,gl:41.8},
-  {n:'7th',pov:28.1,fa:38.5,ma:79.4,ta:117.9,fs:32.7,sh:0.9,ha:133.7,pl:240.5,gl:81.4},
-  {n:'81st',pov:22.0,fa:31.8,ma:63.6,ta:95.4,fs:33.3,sh:1.7,ha:106.4,pl:96.3,gl:38.8},
-  {n:'83rd',pov:22.2,fa:34.0,ma:72.8,ta:106.8,fs:31.8,sh:1.1,ha:86.8,pl:92.7,gl:61.6},
-  {n:'84th',pov:11.6,fa:59.5,ma:61.7,ta:121.2,fs:49.1,sh:0.6,ha:140.3,pl:256.4,gl:106.2},
-  {n:'88th',pov:14.3,fa:31.7,ma:65.5,ta:97.2,fs:32.6,sh:1.3,ha:153.3,pl:112.0,gl:59.2},
-  {n:'90th',pov:31.9,fa:22.6,ma:36.1,ta:58.7,fs:38.5,sh:0.4,ha:79.4,pl:97.5,gl:60.6},
-  {n:'94th',pov:9.8,fa:20.4,ma:40.5,ta:60.9,fs:33.5,sh:0.6,ha:91.5,pl:129.7,gl:83.0},
-  {n:'9th',pov:23.2,fa:24.6,ma:65.2,ta:89.8,fs:27.4,sh:0.3,ha:93.0,pl:216.3,gl:109.9},
+  {n:'100th',pov:13.9,fa:193,ma:467,ta:660,fs:29.3,sh:9,ha:1012,pl:821,gl:245},
+  {n:'101st',pov:20.7,fa:493,ma:725,ta:1218,fs:40.5,sh:15,ha:1560,pl:1171,gl:244},
+  {n:'102nd',pov:11.1,fa:208,ma:400,ta:608,fs:34.2,sh:2,ha:703,pl:820,gl:224},
+  {n:'103rd',pov:13.8,fa:656,ma:881,ta:1537,fs:42.7,sh:8,ha:1559,pl:1749,gl:521},
+  {n:'104th',pov:10.4,fa:160,ma:340,ta:500,fs:32.0,sh:2,ha:613,pl:731,gl:380},
+  {n:'105th',pov:7.9,fa:114,ma:202,ta:316,fs:36.1,sh:0,ha:471,pl:348,gl:206},
+  {n:'106th',pov:9.4,fa:261,ma:475,ta:736,fs:35.5,sh:4,ha:730,pl:903,gl:404},
+  {n:'107th',pov:12.4,fa:157,ma:342,ta:499,fs:31.4,sh:2,ha:591,pl:639,gl:368},
+  {n:'108th',pov:9.3,fa:235,ma:440,ta:675,fs:34.8,sh:1,ha:822,pl:1245,gl:638},
+  {n:'109th',pov:14.2,fa:157,ma:378,ta:535,fs:29.4,sh:3,ha:600,pl:1046,gl:419},
+  {n:'10th',pov:11.6,fa:287,ma:584,ta:871,fs:33.0,sh:4,ha:1073,pl:1585,gl:1155},
+  {n:'110th',pov:13.9,fa:349,ma:623,ta:972,fs:35.9,sh:5,ha:669,pl:1349,gl:435},
+  {n:'111th',pov:7.7,fa:100,ma:186,ta:286,fs:35.0,sh:2,ha:497,pl:432,gl:426},
+  {n:'112th',pov:8.6,fa:137,ma:262,ta:399,fs:34.4,sh:1,ha:627,pl:1607,gl:348},
+  {n:'113th',pov:10.7,fa:282,ma:537,ta:819,fs:34.4,sh:8,ha:915,pl:806,gl:326},
+  {n:'114th',pov:12.3,fa:286,ma:493,ta:779,fs:36.7,sh:6,ha:1029,pl:1287,gl:509},
+  {n:'115th',pov:14.5,fa:328,ma:662,ta:990,fs:33.1,sh:1,ha:578,pl:854,gl:449},
+  {n:'120th',pov:14.6,fa:365,ma:726,ta:1091,fs:33.4,sh:8,ha:1392,pl:1000,gl:297},
+  {n:'121st',pov:12.6,fa:193,ma:478,ta:671,fs:28.8,sh:1,ha:1061,pl:1032,gl:331},
+  {n:'122nd',pov:8.3,fa:179,ma:263,ta:442,fs:40.4,sh:1,ha:761,pl:703,gl:290},
+  {n:'123rd',pov:5.8,fa:94,ma:222,ta:316,fs:29.8,sh:0,ha:605,pl:402,gl:280},
+  {n:'13th',pov:10.3,fa:305,ma:656,ta:961,fs:31.7,sh:1,ha:911,pl:3119,gl:1337},
+  {n:'14th',pov:14.3,fa:2131,ma:4525,ta:6656,fs:32.0,sh:12,ha:4071,pl:16233,gl:6815},
+  {n:'17th',pov:6.7,fa:127,ma:266,ta:393,fs:32.3,sh:0,ha:643,pl:1286,gl:756},
+  {n:'18th',pov:11.3,fa:507,ma:1141,ta:1648,fs:30.8,sh:7,ha:1592,pl:3782,gl:2665},
+  {n:'19th',pov:7.0,fa:104,ma:194,ta:298,fs:35.0,sh:0,ha:488,pl:1400,gl:802},
+  {n:'1st',pov:5.5,fa:204,ma:598,ta:802,fs:25.4,sh:0,ha:874,pl:4515,gl:1589},
+  {n:'20th',pov:8.6,fa:92,ma:254,ta:346,fs:26.6,sh:1,ha:636,pl:1353,gl:686},
+  {n:'23rd',pov:30.6,fa:597,ma:875,ta:1472,fs:40.6,sh:17,ha:1749,pl:1297,gl:626},
+  {n:'24th',pov:12.4,fa:175,ma:330,ta:505,fs:34.7,sh:3,ha:654,pl:1611,gl:489},
+  {n:'25th',pov:34.1,fa:700,ma:1288,ta:1988,fs:35.2,sh:13,ha:2201,pl:1573,gl:771},
+  {n:'26th',pov:25.5,fa:326,ma:511,ta:837,fs:39.0,sh:10,ha:1069,pl:890,gl:757},
+  {n:'28th',pov:20.5,fa:473,ma:879,ta:1352,fs:35.0,sh:17,ha:1450,pl:2766,gl:792},
+  {n:'30th',pov:22.4,fa:259,ma:595,ta:854,fs:30.3,sh:3,ha:1229,pl:1127,gl:547},
+  {n:'32nd',pov:25.5,fa:566,ma:879,ta:1445,fs:39.2,sh:21,ha:1852,pl:1183,gl:482},
+  {n:'33rd',pov:21.0,fa:315,ma:466,ta:781,fs:40.3,sh:5,ha:780,pl:1007,gl:445},
+  {n:'34th',pov:15.1,fa:265,ma:526,ta:791,fs:33.5,sh:7,ha:622,pl:1161,gl:484},
+  {n:'40th',pov:39.0,fa:1024,ma:1312,ta:2336,fs:43.8,sh:28,ha:2219,pl:1947,gl:950},
+  {n:'41st',pov:31.4,fa:997,ma:1243,ta:2240,fs:44.5,sh:21,ha:1977,pl:1485,gl:653},
+  {n:'42nd',pov:36.1,fa:907,ma:1124,ta:2031,fs:44.7,sh:34,ha:2376,pl:1351,gl:667},
+  {n:'43rd',pov:26.0,fa:456,ma:672,ta:1128,fs:40.4,sh:18,ha:1118,pl:1165,gl:613},
+  {n:'44th',pov:33.1,fa:665,ma:908,ta:1573,fs:42.3,sh:17,ha:1388,pl:1162,gl:500},
+  {n:'45th',pov:14.4,fa:292,ma:473,ta:765,fs:38.2,sh:9,ha:960,pl:1037,gl:626},
+  {n:'46th',pov:33.8,fa:671,ma:873,ta:1544,fs:43.4,sh:17,ha:1180,pl:727,gl:498},
+  {n:'47th',pov:19.4,fa:620,ma:804,ta:1424,fs:43.5,sh:19,ha:1244,pl:905,gl:609},
+  {n:'48th',pov:38.9,fa:844,ma:1277,ta:2121,fs:39.8,sh:32,ha:2074,pl:1545,gl:702},
+  {n:'49th',pov:17.5,fa:460,ma:590,ta:1050,fs:43.8,sh:7,ha:1161,pl:1527,gl:687},
+  {n:'50th',pov:16.8,fa:216,ma:392,ta:608,fs:35.5,sh:7,ha:923,pl:1077,gl:533},
+  {n:'52nd',pov:26.3,fa:664,ma:714,ta:1378,fs:48.2,sh:10,ha:1169,pl:1228,gl:637},
+  {n:'5th',pov:23.3,fa:645,ma:946,ta:1591,fs:40.5,sh:2,ha:1346,pl:2694,gl:1542},
+  {n:'60th',pov:25.3,fa:414,ma:797,ta:1211,fs:34.2,sh:10,ha:1038,pl:991,gl:406},
+  {n:'61st',pov:15.3,fa:181,ma:336,ta:517,fs:34.9,sh:3,ha:539,pl:681,gl:348},
+  {n:'62nd',pov:18.4,fa:129,ma:377,ta:506,fs:25.5,sh:1,ha:538,pl:784,gl:309},
+  {n:'63rd',pov:10.0,fa:145,ma:321,ta:466,fs:31.1,sh:5,ha:878,pl:1182,gl:461},
+  {n:'66th',pov:25.0,fa:118,ma:227,ta:345,fs:34.2,sh:0,ha:388,pl:503,gl:244},
+  {n:'67th',pov:14.8,fa:483,ma:638,ta:1121,fs:43.1,sh:19,ha:1694,pl:766,gl:448},
+  {n:'68th',pov:14.1,fa:114,ma:333,ta:447,fs:25.6,sh:0,ha:496,pl:753,gl:292},
+  {n:'69th',pov:13.1,fa:271,ma:413,ta:684,fs:39.6,sh:12,ha:1018,pl:642,gl:337},
+  {n:'6th',pov:6.8,fa:259,ma:628,ta:887,fs:29.2,sh:5,ha:652,pl:2578,gl:1841},
+  {n:'70th',pov:15.3,fa:268,ma:426,ta:694,fs:38.7,sh:7,ha:693,pl:891,gl:286},
+  {n:'71st',pov:18.2,fa:425,ma:555,ta:980,fs:43.3,sh:11,ha:1070,pl:930,gl:330},
+  {n:'72nd',pov:17.0,fa:236,ma:470,ta:706,fs:33.4,sh:3,ha:458,pl:596,gl:293},
+  {n:'73rd',pov:33.1,fa:884,ma:1195,ta:2079,fs:42.5,sh:36,ha:2036,pl:1371,gl:520},
+  {n:'75th',pov:23.2,fa:526,ma:784,ta:1310,fs:40.1,sh:18,ha:1530,pl:1284,gl:452},
+  {n:'76th',pov:13.4,fa:232,ma:421,ta:653,fs:35.5,sh:6,ha:830,pl:913,gl:403},
+  {n:'77th',pov:18.1,fa:455,ma:481,ta:936,fs:48.6,sh:14,ha:1161,pl:845,gl:447},
+  {n:'78th',pov:5.8,fa:208,ma:342,ta:550,fs:37.8,sh:7,ha:620,pl:1612,gl:537},
+  {n:'79th',pov:27.8,fa:443,ma:573,ta:1016,fs:43.6,sh:15,ha:1274,pl:1346,gl:418},
+  {n:'7th',pov:28.1,fa:385,ma:794,ta:1179,fs:32.7,sh:9,ha:1337,pl:2405,gl:814},
+  {n:'81st',pov:22.0,fa:318,ma:636,ta:954,fs:33.3,sh:17,ha:1064,pl:963,gl:388},
+  {n:'83rd',pov:22.2,fa:340,ma:728,ta:1068,fs:31.8,sh:11,ha:868,pl:927,gl:616},
+  {n:'84th',pov:11.6,fa:595,ma:617,ta:1212,fs:49.1,sh:6,ha:1403,pl:2564,gl:1062},
+  {n:'88th',pov:14.3,fa:317,ma:655,ta:972,fs:32.6,sh:13,ha:1533,pl:1120,gl:592},
+  {n:'90th',pov:31.9,fa:226,ma:361,ta:587,fs:38.5,sh:4,ha:794,pl:975,gl:606},
+  {n:'94th',pov:9.8,fa:204,ma:405,ta:609,fs:33.5,sh:6,ha:915,pl:1297,gl:830},
+  {n:'9th',pov:23.2,fa:246,ma:652,ta:898,fs:27.4,sh:3,ha:930,pl:2163,gl:1099},
 ];
 const K7 = ['BU','FA','GA','GL','MU','RA','RO'];
 const CC = {BU:'#394882',FA:'#e7466d',GA:'#9b9fbc',GL:'#ff7c53',MU:'#050507',RA:'#cea9be',RO:'#217ebe'};
 const CL = {BU:'Burglary',FA:'Fel. Assault',GA:'Grand Larceny Auto',GL:'Grand Larceny',MU:'Murder',RA:'Rape',RO:'Robbery'};
+const BC = {Bx:'#e7466d',Bk:'#394882',Mn:'#ff7c53',Qn:'#707175',SI:'#9b9fbc'};
+const BL = {Bx:'Bronx',Bk:'Brooklyn',Mn:'Manhattan',Qn:'Queens',SI:'Staten Island'};
 
 const GITHUB_USER = "joshgreenman1973";
 const REPO_NAME = "nypd-compstat-scraper";
@@ -348,7 +366,7 @@ const UnifiedMagnitudeChart = ({ data, isTourist, citywideRates, activeGeo }) =>
               <text x={START_X + barWidth + 8} y={y + 5} fontSize="13" fontWeight="bold" fill={VC.black}>
                 {row.current.toLocaleString()}
                 {row.currentRate !== null && !isTourist && (
-                  <tspan fontSize="11" fill={VC.charcoal} fontWeight="normal">{' '}({row.currentRate.toFixed(1)}/10k{activeGeo !== 'citywide' && citywideRates[row.name] !== undefined ? ` vs ${citywideRates[row.name].toFixed(1)} CW` : ''})</tspan>
+                  <tspan fontSize="11" fill={VC.charcoal} fontWeight="normal">{' '}({row.currentRate.toFixed(1)}/100k{activeGeo !== 'citywide' && citywideRates[row.name] !== undefined ? ` vs ${citywideRates[row.name].toFixed(1)} CW` : ''})</tspan>
                 )}
               </text>
             </g>
@@ -397,7 +415,7 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData }) => {
     const geoLabel = activeGeo === 'citywide' ? 'Citywide (all of NYC)' : formatGeoName(activeGeo);
 
     const offenseLines = all.map(o =>
-      `  ${o.name}: ${o.current.toLocaleString()} incidents (${formatPct(o.pct)} vs prior year${o.currentRate !== null ? `, ${o.currentRate.toFixed(1)}/10k residents` : ''})`
+      `  ${o.name}: ${o.current.toLocaleString()} incidents (${formatPct(o.pct)} vs prior year${o.currentRate !== null ? `, ${o.currentRate.toFixed(1)}/100k residents` : ''})`
     ).join('\n');
 
     let precinctTable = '';
@@ -417,8 +435,8 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData }) => {
             total += (felonies[name] ? c : 0);
             return `${name}:${c}`;
           });
-          const rate = pop > 0 ? ((total / pop) * 10000).toFixed(1) : '?';
-          return `  ${pct} (${hood}): ${crimeNums.join(', ')} | Total 7 major: ${total} | ${rate}/10k | Pop ~${formatPop(pop)}`;
+          const rate = pop > 0 ? ((total / pop) * 100000).toFixed(1) : '?';
+          return `  ${pct} (${hood}): ${crimeNums.join(', ')} | Total 7 major: ${total} | ${rate}/100k | Pop ~${formatPop(pop)}`;
         });
         precinctTable = `\n\nPRECINCT-LEVEL DATA (${timeLabel}):\n${lines.join('\n')}`;
       }
@@ -438,8 +456,8 @@ ALL TRACKED OFFENSES:
 ${offenseLines}
 
 ${driver ? `PRIMARY DRIVER OF CHANGE: ${driver.name} accounts for ${driver.share.toFixed(0)}% of the overall shift` : ''}
-${localAnomaly ? `LOCAL ANOMALY: ${localAnomaly.name} rate (${localAnomaly.localRate.toFixed(1)}/10k) is ${localAnomaly.ratio.toFixed(1)}x the citywide average` : ''}
-${localBrightSpot ? `LOCAL BRIGHT SPOT: ${localBrightSpot.name} rate (${localBrightSpot.localRate.toFixed(1)}/10k) is ${((1 - localBrightSpot.ratio) * 100).toFixed(0)}% below citywide average` : ''}${precinctTable}
+${localAnomaly ? `LOCAL ANOMALY: ${localAnomaly.name} rate (${localAnomaly.localRate.toFixed(1)}/100k) is ${localAnomaly.ratio.toFixed(1)}x the citywide average` : ''}
+${localBrightSpot ? `LOCAL BRIGHT SPOT: ${localBrightSpot.name} rate (${localBrightSpot.localRate.toFixed(1)}/100k) is ${((1 - localBrightSpot.ratio) * 100).toFixed(0)}% below citywide average` : ''}${precinctTable}
 
 === HISTORICAL DATASETS FOR CONTEXT (1993-2025) ===
 If the user asks about historical context, refer to these reference arrays:
@@ -457,7 +475,7 @@ PRECINCT: ${JSON.stringify(PC)}
     setError('');
 
     const dataContext = buildContext();
-    const systemPrompt = `You are a concise, plain-language crime data analyst for Vital City. You have access to BOTH current weekly/YTD CompStat data AND 30-year historical datasets (1993-2025). Answer directly and precisely — 2 to 4 sentences maximum. Cite specific numbers. When comparing precincts, use per-capita rates (per 10k residents). Never use bullet points or headers.`;
+    const systemPrompt = `You are a concise, plain-language crime data analyst for Vital City. You have access to BOTH current weekly/YTD CompStat data AND 30-year historical datasets (1993-2025). Answer directly and precisely — 2 to 4 sentences maximum. Cite specific numbers. When comparing precincts, use per-capita rates (per 100k residents). Never use bullet points or headers.`;
 
     const messages = [];
     history.forEach(h => {
@@ -646,11 +664,12 @@ export default function App() {
       const prior = activeTab === 'ytd' ? stats?.year_to_date?.prior_year : stats?.week_to_date?.prior_year;
       const pct = activeTab === 'ytd' ? stats?.year_to_date?.pct_change : stats?.week_to_date?.pct_change;
       const c = safeNum(current); const p = safeNum(prior);
-      return { name, current: c, prior: p, pct, diff: c - p, hist: stats?.historical || {}, currentRate: pop ? (c / pop) * 10000 : null };
+      return { name, current: c, prior: p, pct, diff: c - p, hist: stats?.historical || {}, currentRate: pop ? (c / pop) * 100000 : null };
     });
     const felonies = extract(geoData.seven_major_felonies).sort((a, b) => b.current - a.current);
     const minors = extract(geoData.additional_stats).sort((a, b) => b.current - a.current);
     const all = [...felonies, ...minors].sort((a, b) => b.current - a.current);
+    
     let mCur = 0, mPri = 0, pCur = 0, vCur = 0, murder = 0, shootingVic = 0;
     felonies.forEach(f => {
       mCur += f.current; mPri += f.prior;
@@ -659,20 +678,32 @@ export default function App() {
       if (VIOLENT_CRIMES.includes(f.name)) vCur += f.current;
     });
     minors.forEach(m => { if (m.name === 'Shooting Vic.') shootingVic = m.current; });
+
     const citywideRates = {};
+    let cwMCur = 0;
     if (citywideData) {
-      const cwAll = { ...(citywideData.seven_major_felonies || {}), ...(citywideData.additional_stats || {}) };
+      const cwFelonies = citywideData.seven_major_felonies || {};
+      const cwAddl = citywideData.additional_stats || {};
+      const cwAll = { ...cwFelonies, ...cwAddl };
+      
       Object.entries(cwAll).forEach(([n, s]) => {
         const c = activeTab === 'ytd' ? s?.year_to_date?.current_year : s?.week_to_date?.current_year;
-        citywideRates[n] = (safeNum(c) / CITYWIDE_POPULATION) * 10000;
+        citywideRates[n] = (safeNum(c) / CITYWIDE_POPULATION) * 100000;
+      });
+
+      Object.values(cwFelonies).forEach(stats => {
+        const c = activeTab === 'ytd' ? stats?.year_to_date?.current_year : stats?.week_to_date?.current_year;
+        cwMCur += safeNum(c);
       });
     }
+
     const mDiff = mCur - mPri;
     let driverObj = null;
     if (mDiff !== 0 && felonies.length > 0) {
       const d = felonies.reduce((p, c) => (Math.abs(c.diff) > Math.abs(p.diff) && Math.sign(c.diff) === Math.sign(mDiff)) ? c : p, {diff: 0});
       if (d && d.name) driverObj = { name: d.name, diff: d.diff, share: Math.abs((d.diff / mDiff) * 100) };
     }
+
     let localAnomaly = null, localBrightSpot = null;
     if (activeGeo !== 'citywide' && pop && citywideData) {
       let maxRatio = 0, minRatio = Infinity;
@@ -689,7 +720,20 @@ export default function App() {
         }
       });
     }
-    return { period: geoData.report_period || {}, felonies, minors, all, driver: driverObj, citywideRates, localAnomaly, localBrightSpot, totals: { mCur, mPri, pCur, vCur, mPct: calcPct(mCur, mPri) ?? 0, diff: mDiff, murder, shootingVic, citywideRate: (mCur / CITYWIDE_POPULATION) * 10000, lethalityRatio: murder > 0 ? (shootingVic / murder) : 0 } };
+    
+    return { 
+      period: geoData.report_period || {}, 
+      felonies, minors, all, driver: driverObj, citywideRates, localAnomaly, localBrightSpot, 
+      totals: { 
+        mCur, mPri, pCur, vCur, 
+        mPct: calcPct(mCur, mPri) ?? 0, 
+        diff: mDiff, 
+        murder, 
+        shootingVic,
+        citywideRate: (cwMCur / CITYWIDE_POPULATION) * 100000,
+        lethalityRatio: murder > 0 ? (shootingVic / murder) : 0 
+      } 
+    };
   }, [rawData, activeTab, activeGeo]);
 
   const hotspots = useMemo(() => {
@@ -750,7 +794,7 @@ export default function App() {
       cards.push({ id: 'lethality', icon: AlertCircle, title: 'The Lethality Gap', content: `For every **1 homicide**, there were **${totals.lethalityRatio.toFixed(1)} shooting victims**. (A widening gap often points to improved trauma care rather than fewer street shootings).` });
     } else {
       if (driver && driver.share >= 25) cards.push({ id: 'local_driver', icon: Target, title: 'Local Driver', content: `The change in **${driver.name}** volume accounts for **${driver.share.toFixed(0)}%** of this area's trajectory.` });
-      if (localAnomaly && !isTouristPrecinct) cards.push({ id: 'anomaly', icon: AlertTriangle, title: 'Elevated Local Risk', content: `The rate for **${localAnomaly.name}** here is **${localAnomaly.localRate.toFixed(1)} per 10k residents**, which is **${localAnomaly.ratio.toFixed(1)}x** higher than the citywide average (${localAnomaly.cityRate.toFixed(1)}).` });
+      if (localAnomaly && !isTouristPrecinct) cards.push({ id: 'anomaly', icon: AlertTriangle, title: 'Elevated Local Risk', content: `The rate for **${localAnomaly.name}** here is **${localAnomaly.localRate.toFixed(1)} per 100k residents**, which is **${localAnomaly.ratio.toFixed(1)}x** higher than the citywide average (${localAnomaly.cityRate.toFixed(1)}).` });
       else if (topSurge && topSurge.pct > 0) cards.push({ id: 'surge', icon: TrendingUp, title: 'Local Trajectory', content: `**${topSurge.name}** index offenses have increased by **${topSurge.pct.toFixed(1)}%** compared to last year.` });
       if (localBrightSpot && !isTouristPrecinct) cards.push({ id: 'brightspot', icon: ShieldCheck, title: 'Local Bright Spot', content: `The rate of **${localBrightSpot.name}** offenses here sits **${((1 - localBrightSpot.ratio)*100).toFixed(0)}% below** the citywide average.` });
       else if (topDrop && topDrop.pct < 0) cards.push({ id: 'drop', icon: TrendingDown, title: 'Local Trajectory', content: `**${topDrop.name}** index offenses have fallen by **${Math.abs(topDrop.pct).toFixed(1)}%** here compared to last year.` });
@@ -876,7 +920,7 @@ export default function App() {
             </div>
           </div>
 
-     {/* Section 5: Precinct Scatter */}
+          {/* Section 5: Precinct Scatter */}
           <div className="border-t border-gray-200 pt-16 space-y-8">
              <div className="flex flex-col md:flex-row justify-between md:items-end gap-6">
                <div className="max-w-2xl space-y-4">
@@ -913,6 +957,34 @@ export default function App() {
                   </ScatterChart>
                 </ResponsiveContainer>
              </div>
+          </div>
+
+          <div className="mt-8 overflow-x-auto">
+            <table className="border-collapse text-[11px] w-full min-w-[680px]">
+              <thead>
+                <tr>
+                  <th className="text-left p-2 border-b-2 border-[#050507] text-[10px]">Quartile</th>
+                  <th className="text-center p-2 border-b-2 border-[#050507] text-[10px]">Poverty</th>
+                  <th className="text-center p-2 border-b-2 border-[#050507] text-[10px] text-[#e7466d]">Fel. Aslt (per 100k)</th>
+                  <th className="text-center p-2 border-b-2 border-[#050507] text-[10px] text-[#217ebe]">Grand Larc (per 100k)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  {q:'Q1: Lowest',pov:'8.4%',fa:180,gl:651},
+                  {q:'Q2: Low-mid',pov:'13.3%',fa:400,gl:948},
+                  {q:'Q3: Mid-high',pov:'19.0%',fa:353,gl:492},
+                  {q:'Q4: Highest',pov:'30.3%',fa:607,gl:653},
+                ].map((q,i)=>(
+                  <tr key={i} className={`border-b border-gray-100 ${i===3 ? 'bg-red-50/50' : ''}`}>
+                    <td className="p-2 font-semibold">{q.q}</td>
+                    <td className="text-center p-2 font-bold">{q.pov}</td>
+                    <td className="text-center p-2 font-bold text-[#e7466d]">{q.fa}</td>
+                    <td className="text-center p-2 font-bold text-[#217ebe]">{q.gl}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           {/* Unified AI Query Box */}
@@ -1009,9 +1081,9 @@ export default function App() {
             </div>
             {activePop && activeGeo !== 'citywide' && !isTouristPrecinct && (
               <div className="pb-1.5 flex flex-col pl-6 border-l border-gray-200">
-                <span className="text-sm font-medium text-indigo-500 uppercase tracking-widest mb-1 flex items-center gap-1"><Users size={14} /> Per 10k Residents</span>
-                <span className="text-lg font-bold text-black tabular-nums">{((parsedData.totals.mCur / activePop) * 10000).toFixed(1)} incidents</span>
-                <span className="text-xs font-medium text-gray-500 mt-1">Citywide: {(parsedData.totals.citywideRate || 0).toFixed(1)} per 10k</span>
+                <span className="text-sm font-medium text-indigo-500 uppercase tracking-widest mb-1 flex items-center gap-1"><Users size={14} /> Per 100k Residents</span>
+                <span className="text-lg font-bold text-black tabular-nums">{((parsedData.totals.mCur / activePop) * 100000).toFixed(1)} incidents</span>
+                <span className="text-xs font-medium text-gray-500 mt-1">Citywide: {(parsedData.totals.citywideRate || 0).toFixed(1)} per 100k</span>
               </div>
             )}
           </div>
@@ -1088,7 +1160,7 @@ export default function App() {
                       <td className={`py-3 text-right tabular-nums text-gray-500 ${isVolatile ? 'opacity-50' : ''}`}><div className="text-sm">{item.prior.toLocaleString()}</div></td>
                       <td className={`py-3 text-right tabular-nums text-black ${isVolatile ? 'opacity-50' : ''}`}>
                         <div className="text-sm font-black">{item.current.toLocaleString()}</div>
-                        {item.currentRate !== null && !isTouristPrecinct && <div className="text-[10px] font-normal text-gray-500">{item.currentRate.toFixed(1)}/10k (CW: {parsedData.citywideRates[item.name]?.toFixed(1)})</div>}
+                        {item.currentRate !== null && !isTouristPrecinct && <div className="text-[10px] font-normal text-gray-500">{item.currentRate.toFixed(1)}/100k (CW: {parsedData.citywideRates[item.name]?.toFixed(1)})</div>}
                       </td>
                       <td className={`py-3 text-right text-xs font-bold tabular-nums ${item.pct > 0 ? 'text-orange-600' : 'text-green-600'}`}>{formatPct(item.pct)}</td>
                     </tr>
