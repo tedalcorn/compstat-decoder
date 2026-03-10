@@ -156,13 +156,13 @@ const FALLBACK_DATA = {
     "source": "Citywide",
     "report_period": { "week_start": "3/2/2026", "week_end": "3/8/2026" },
     "seven_major_felonies": {
-      "Murder": { "year_to_date": { "current_year": 36, "prior_year": 61, "pct_change": -41.0 } },
-      "Rape": { "year_to_date": { "current_year": 384, "prior_year": 354, "pct_change": 8.5 } },
-      "Robbery": { "year_to_date": { "current_year": 2158, "prior_year": 2329, "pct_change": -7.3 } },
-      "Fel. Assault": { "year_to_date": { "current_year": 4349, "prior_year": 4455, "pct_change": -2.4 } },
-      "Burglary": { "year_to_date": { "current_year": 1898, "prior_year": 2421, "pct_change": -21.6 } },
-      "Gr. Larceny": { "year_to_date": { "current_year": 6715, "prior_year": 7120, "pct_change": -5.7 } },
-      "G.L.A.": { "year_to_date": { "current_year": 1845, "prior_year": 1977, "pct_change": -6.7 } }
+      "Murder": { "year_to_date": { "current_year": 36, "prior_year": 61, "pct_change": -41.0 }, "historical": { "31_yr_pct": -89.9 } },
+      "Rape": { "year_to_date": { "current_year": 384, "prior_year": 354, "pct_change": 8.5 }, "historical": { "31_yr_pct": -30.1 } },
+      "Robbery": { "year_to_date": { "current_year": 2158, "prior_year": 2329, "pct_change": -7.3 }, "historical": { "31_yr_pct": -86.2 } },
+      "Fel. Assault": { "year_to_date": { "current_year": 4349, "prior_year": 4455, "pct_change": -2.4 }, "historical": { "31_yr_pct": -32.4 } },
+      "Burglary": { "year_to_date": { "current_year": 1898, "prior_year": 2421, "pct_change": -21.6 }, "historical": { "31_yr_pct": -89.5 } },
+      "Gr. Larceny": { "year_to_date": { "current_year": 6715, "prior_year": 7120, "pct_change": -5.7 }, "historical": { "31_yr_pct": -55.7 } },
+      "G.L.A.": { "year_to_date": { "current_year": 1845, "prior_year": 1977, "pct_change": -6.7 }, "historical": { "31_yr_pct": -83.5 } }
     },
     "additional_stats": {}
   }
@@ -249,28 +249,54 @@ const toOrdinalPrecinct = (n) => {
   return num + "th Precinct";
 };
 
+const renderMarkdown = (node) => {
+  if (typeof node === 'string') {
+    const parts = node.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i} className="text-black">{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+  }
+  if (React.isValidElement(node)) {
+    const { children, ...rest } = node.props;
+    if (children) {
+      const processed = React.Children.map(children, child => renderMarkdown(child));
+      return React.cloneElement(node, rest, processed);
+    }
+  }
+  return node;
+};
+
 // Historic Layout Components
 const SL=({children})=><div style={{fontSize:10,letterSpacing:'0.14em',textTransform:'uppercase',color:'#ff7c53',marginBottom:6,fontWeight:700}}>{children}</div>;
 const H2=({children})=><h2 style={{fontSize:19,fontWeight:800,margin:'0 0 6px',letterSpacing:'-0.01em',lineHeight:1.2}}>{children}</h2>;
 const Ds=({children})=><p style={{fontSize:13,color:'#555',margin:'0 0 18px',lineHeight:1.6}}>{children}</p>;
-const Co=({color,children,s={}})=><div style={{padding:'12px 16px',borderLeft:`4px solid ${color}`,background:'#fafafa',borderRadius:'0 4px 4px 0',fontSize:12,lineHeight:1.55,...s}}>{children}</div>;
-const St=({l,v,sub,c='#050507'})=><div style={{padding:'12px 14px',border:'1px solid #eee',borderLeft:`4px solid ${c}`,borderRadius:'0 4px 4px 0'}}><div style={{fontSize:10,color:'#707175',marginBottom:3}}>{l}</div><div style={{fontSize:20,fontWeight:800}}>{v}</div>{sub&&<div style={{fontSize:10,color:'#999',marginTop:2}}>{sub}</div>}</div>;
 
 // Icons
 const Icon = ({ children, size = 16, className = "" }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{children}</svg>
 );
 const RefreshCw = (p) => <Icon {...p}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></Icon>;
+const TrendingUp = (p) => <Icon {...p}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></Icon>;
+const TrendingDown = (p) => <Icon {...p}><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></Icon>;
 const ChevronDown = (p) => <Icon {...p}><polyline points="6 9 12 15 18 9"/></Icon>;
+const Target = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></Icon>;
 const Activity = (p) => <Icon {...p}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></Icon>;
+const AlertCircle = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></Icon>;
+const MapPin = (p) => <Icon {...p}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></Icon>;
 const Info = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></Icon>;
 const Users = (p) => <Icon {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></Icon>;
 const SearchIcon = (p) => <Icon {...p}><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></Icon>;
 const Navigation = (p) => <Icon {...p}><polygon points="3 11 22 2 13 21 11 13 3 11"/></Icon>;
+const AlertTriangle = (p) => <Icon {...p}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></Icon>;
+const ShieldCheck = (p) => <Icon {...p}><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></Icon>;
 const Sparkles = (p) => <Icon {...p}><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></Icon>;
 const Send = (p) => <Icon {...p}><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></Icon>;
 const X = (p) => <Icon {...p}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>;
 const ArrowLeft = (p) => <Icon {...p}><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></Icon>;
+const Clock = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></Icon>;
 
 /* ------------------------------------------------------------------ */
 /* COMPSTAT LIVE CHARTS                                               */
@@ -430,7 +456,7 @@ SUMMARY TOTALS:
 ALL TRACKED OFFENSES:
 ${offenseLines}
 
-${driver ? `PRIMARY DRIVER OF CHANGE: ${driver.name} accounts for ${driver.share.toFixed(0)}% of the overall shift` : ''}
+${driver ? `PRIMARY DRIVER OF CHANGE: ${driver.name} accounts for ${driver.share.toFixed(0)}% of the overall shift (${formatSignedInt(driver.diff)} incidents)` : ''}
 ${localAnomaly ? `LOCAL ANOMALY: ${localAnomaly.name} rate (${localAnomaly.localRate.toFixed(1)}/10k) is ${localAnomaly.ratio.toFixed(1)}x the citywide average` : ''}
 ${localBrightSpot ? `LOCAL BRIGHT SPOT: ${localBrightSpot.name} rate (${localBrightSpot.localRate.toFixed(1)}/10k) is ${((1 - localBrightSpot.ratio) * 100).toFixed(0)}% below citywide average` : ''}${precinctTable}
 
@@ -567,7 +593,7 @@ PRECINCT: ${JSON.stringify(PC)}
 /* MAIN APP WITH VIEW ROUTING                                         */
 /* ------------------------------------------------------------------ */
 export default function App() {
-  const [appView, setAppView] = useState('live'); // 'live' | 'historic'
+  const [appView, setAppView] = useState('live');
   const [activeTab, setActiveTab] = useState('ytd');
   const [activeGeo, setActiveGeo] = useState('citywide');
   const [rawData, setRawData] = useState(FALLBACK_DATA);
@@ -580,10 +606,8 @@ export default function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [fetchError, setFetchError] = useState(false);
 
-  // Historic View State
   const [sec, setSec] = useState('city');
   const [sub, setSub] = useState('dna');
-  const [hCat, setHCat] = useState(null);
   const [cY1, setCY1] = useState(1993);
   const [cY2, setCY2] = useState(2025);
   const [xM, setXM] = useState('pov');
@@ -649,13 +673,14 @@ export default function App() {
     const felonies = extract(geoData.seven_major_felonies).sort((a, b) => b.current - a.current);
     const minors = extract(geoData.additional_stats).sort((a, b) => b.current - a.current);
     const all = [...felonies, ...minors].sort((a, b) => b.current - a.current);
-    let mCur = 0, mPri = 0, pCur = 0, vCur = 0, murder = 0;
+    let mCur = 0, mPri = 0, pCur = 0, vCur = 0, murder = 0, shootingVic = 0;
     felonies.forEach(f => {
       mCur += f.current; mPri += f.prior;
       if (f.name === 'Murder') murder = f.current;
       if (PROPERTY_CRIMES.includes(f.name)) pCur += f.current;
       if (VIOLENT_CRIMES.includes(f.name)) vCur += f.current;
     });
+    minors.forEach(m => { if (m.name === 'Shooting Vic.') shootingVic = m.current; });
     const citywideRates = {};
     if (citywideData) {
       const cwAll = { ...(citywideData.seven_major_felonies || {}), ...(citywideData.additional_stats || {}) };
@@ -670,6 +695,8 @@ export default function App() {
       const d = felonies.reduce((p, c) => (Math.abs(c.diff) > Math.abs(p.diff) && Math.sign(c.diff) === Math.sign(mDiff)) ? c : p, {diff: 0});
       if (d && d.name) driverObj = { name: d.name, diff: d.diff, share: Math.abs((d.diff / mDiff) * 100) };
     }
+    const historicAnchor = felonies.filter(f => f.hist && typeof f.hist['31_yr_pct'] === 'number').reduce((p, c) => (!p || c.hist['31_yr_pct'] < p.hist['31_yr_pct']) ? c : p, null);
+    const notableTrends = all.filter(item => item.prior >= VOLATILITY_THRESHOLD && typeof item.pct === 'number').sort((a, b) => b.pct - a.pct);
     let localAnomaly = null, localBrightSpot = null;
     if (activeGeo !== 'citywide' && pop && citywideData) {
       let maxRatio = 0, minRatio = Infinity;
@@ -686,18 +713,79 @@ export default function App() {
         }
       });
     }
-    return { period: geoData.report_period || {}, felonies, minors, all, driver: driverObj, citywideRates, localAnomaly, localBrightSpot, totals: { mCur, mPri, pCur, vCur, mPct: calcPct(mCur, mPri) ?? 0, diff: mDiff, murder, citywideRate: (mCur / CITYWIDE_POPULATION) * 10000 } };
+    return { period: geoData.report_period || {}, felonies, minors, all, driver: driverObj, historicAnchor, topSurge: notableTrends[0], topDrop: notableTrends[notableTrends.length - 1], citywideRates, localAnomaly, localBrightSpot, totals: { mCur, mPri, pCur, vCur, mPct: calcPct(mCur, mPri) ?? 0, diff: mDiff, murder, shootingVic, citywideRate: (mCur / CITYWIDE_POPULATION) * 10000, lethalityRatio: murder > 0 ? (shootingVic / murder) : 0 } };
   }, [rawData, activeTab, activeGeo]);
+
+  const hotspots = useMemo(() => {
+    const keys = Object.keys(rawData).filter(k => k !== 'citywide' && k.includes('Precinct'));
+    let volumes = [], allPrecinctCrimes = [];
+    keys.forEach(pct => {
+      const data = rawData[pct]; let vSum = 0;
+      Object.entries(data.seven_major_felonies || {}).forEach(([crime, stats]) => {
+        const c = safeNum(activeTab === 'ytd' ? stats?.year_to_date?.current_year : stats?.week_to_date?.current_year);
+        const p = safeNum(activeTab === 'ytd' ? stats?.year_to_date?.prior_year : stats?.week_to_date?.prior_year);
+        if (VIOLENT_CRIMES.includes(crime)) vSum += c;
+        if (p >= VOLATILITY_THRESHOLD) allPrecinctCrimes.push({ precinct: pct, crime, pct: ((c - p) / p) * 100, current: c, prior: p });
+      });
+      volumes.push({ precinct: pct, violent: vSum });
+    });
+    const sortedV = [...volumes].filter(v => v.violent > 0).sort((a,b) => b.violent - a.violent);
+    let inequality = null;
+    if (sortedV.length > 10) {
+      const top5 = sortedV.slice(0, 5); const top5Sum = top5.reduce((s, p) => s + p.violent, 0); const top5Pop = top5.reduce((s, p) => s + (GEO_POPULATIONS[p.precinct] || 0), 0);
+      let bottomSum = 0, bottomCount = 0, bottomPop = 0;
+      for (let i = sortedV.length - 1; i >= 0 && bottomSum < top5Sum; i--) { bottomSum += sortedV[i].violent; bottomCount++; bottomPop += (GEO_POPULATIONS[sortedV[i].precinct] || 0); }
+      inequality = { topCount: 5, topSum: top5Sum, topPop: top5Pop, bottomCount, bottomPop };
+    }
+    allPrecinctCrimes.sort((a, b) => b.pct - a.pct);
+    return { inequality, topPctSpike: allPrecinctCrimes[0], topPctDrop: allPrecinctCrimes[allPrecinctCrimes.length - 1] };
+  }, [rawData, activeTab]);
 
   const isTouristPrecinct = ["14th Precinct", "18th Precinct", "22nd Precinct"].includes(activeGeo);
   const activePop = GEO_POPULATIONS[activeGeo] || (activeGeo === 'citywide' ? CITYWIDE_POPULATION : null);
   const formattedMPct = typeof parsedData.totals.mPct === 'number' ? Number(Math.abs(parsedData.totals.mPct)).toFixed(1) : '0.0';
 
-  // Live Dashboard specific memos (Restored to prevent undefined errors)
+  const buildTrendCards = () => {
+    const cards = [];
+    const { driver, localAnomaly, localBrightSpot, topSurge, topDrop, totals } = parsedData;
+    if (activeGeo === 'citywide') {
+      if (driver) {
+        const driverShareText = driver.diff > 0
+          ? `The overall surge was largely driven by **${driver.name}** index offenses, which account for **${driver.share.toFixed(0)}%** of the total citywide upward shift.`
+          : `Nearly **${driver.share.toFixed(0)}%** of the total citywide drop in major index offenses can be attributed to **${driver.name}**, which saw **${Math.abs(driver.diff).toLocaleString()} fewer cases** than last year.`;
+        cards.push({ id: 'driver', icon: Target, title: 'Primary Driver', content: driverShareText });
+      }
+      
+      const peakTotal = CW[0].BU + CW[0].FA + CW[0].GA + CW[0].GL + CW[0].MU + CW[0].RA + CW[0].RO;
+      const curTotal = CW[CW.length - 1].BU + CW[CW.length - 1].FA + CW[CW.length - 1].GA + CW[CW.length - 1].GL + CW[CW.length - 1].MU + CW[CW.length - 1].RA + CW[CW.length - 1].RO;
+      const overallDrop = (((peakTotal - curTotal) / peakTotal) * 100).toFixed(0);
+      cards.push({ id: 'historic_drop', icon: Clock, title: '30-Year Context', content: `While current weekly shifts dominate headlines, the overall volume of major index crime remains **${overallDrop}% below** the 1993 peak (${curTotal.toLocaleString()} vs ${peakTotal.toLocaleString()} incidents annually).` });
+
+      if (hotspots?.inequality) cards.push({ id: 'inequality', icon: Activity, title: 'Geographic Disparities', content: `The **5 most dangerous precincts** (home to ~${formatPop(hotspots.inequality.topPop)} residents) carry the exact same violent index crime burden as the **${hotspots.inequality.bottomCount} safest precincts combined** (home to ~${formatPop(hotspots.inequality.bottomPop)} residents).` });
+      if (hotspots?.topPctSpike || hotspots?.topPctDrop) {
+        const flashContent = (
+          <ul className="space-y-3 mt-1 text-[14px]">
+            {hotspots.topPctSpike && <li>{`In **${formatGeoName(hotspots.topPctSpike.precinct)}**, **${hotspots.topPctSpike.crime}** offenses have spiked by **${hotspots.topPctSpike.pct.toFixed(1)}%**.`}</li>}
+            {hotspots.topPctDrop && <li className="pt-2 border-t border-gray-100">{`In **${formatGeoName(hotspots.topPctDrop.precinct)}**, **${hotspots.topPctDrop.crime}** offenses have fallen by **${Math.abs(hotspots.topPctDrop.pct).toFixed(1)}%**.`}</li>}
+          </ul>
+        );
+        cards.push({ id: 'flashpoints', icon: MapPin, title: 'Significant Local Shifts', content: flashContent });
+      }
+      cards.push({ id: 'lethality', icon: AlertCircle, title: 'The Lethality Gap', content: `For every **1 homicide**, there were **${totals.lethalityRatio.toFixed(1)} shooting victims**. (A widening gap often points to improved trauma care rather than fewer street shootings).` });
+    } else {
+      if (driver && driver.share >= 25) cards.push({ id: 'local_driver', icon: Target, title: 'Local Driver', content: `The change in **${driver.name}** volume (shifting by ${formatSignedInt(driver.diff)} incidents) accounts for **${driver.share.toFixed(0)}%** of this area's trajectory.` });
+      if (localAnomaly && !isTouristPrecinct) cards.push({ id: 'anomaly', icon: AlertTriangle, title: 'Elevated Local Risk', content: `The rate for **${localAnomaly.name}** here is **${localAnomaly.localRate.toFixed(1)} per 10k residents**, which is **${localAnomaly.ratio.toFixed(1)}x** higher than the citywide average (${localAnomaly.cityRate.toFixed(1)}).` });
+      else if (topSurge && topSurge.pct > 0) cards.push({ id: 'surge', icon: TrendingUp, title: 'Local Trajectory', content: `**${topSurge.name}** index offenses have increased by **${topSurge.pct.toFixed(1)}%** compared to last year.` });
+      if (localBrightSpot && !isTouristPrecinct) cards.push({ id: 'brightspot', icon: ShieldCheck, title: 'Local Bright Spot', content: `The rate of **${localBrightSpot.name}** offenses here sits **${((1 - localBrightSpot.ratio)*100).toFixed(0)}% below** the citywide average.` });
+      else if (topDrop && topDrop.pct < 0) cards.push({ id: 'drop', icon: TrendingDown, title: 'Local Trajectory', content: `**${topDrop.name}** index offenses have fallen by **${Math.abs(topDrop.pct).toFixed(1)}%** here compared to last year.` });
+    }
+    return cards;
+  };
+
+  const trendCards = buildTrendCards();
   const risingOffenses = useMemo(() => parsedData.all.filter(o => o.pct > 0).sort((a, b) => b.pct - a.pct) || [], [parsedData.all]);
   const fallingOffenses = useMemo(() => parsedData.all.filter(o => o.pct < 0).sort((a, b) => a.pct - b.pct) || [], [parsedData.all]);
 
-  // Memoized Historic Computations
   const comp = useMemo(()=>CW.map(d=>{const t=K7.reduce((s,c)=>s+d[c],0);const o={y:d.y,total:t};K7.forEach(c=>{o[c+'p']=d[c]/t*100;});return o;}),[]);
   const idx = useMemo(()=>{const b=CW[0];return CW.map(d=>{const o={y:d.y};K7.forEach(c=>{o[c]=d[c]/b[c]*100;});return o;});},[]);
   const vp = useMemo(()=>{const vC=['FA','MU','RA','RO'],pC=['BU','GA','GL'];return CW.map(d=>({y:d.y,violent:vC.reduce((s,c)=>s+d[c],0),property:pC.reduce((s,c)=>s+d[c],0)}));},[]);
@@ -736,7 +824,6 @@ export default function App() {
         </div>}
         <div style={{maxWidth:980,margin:'0 auto',padding:'20px 20px 50px'}}>
 
-        {/* HISTORIC SUBVIEWS */}
         {sec==='city'&&sub==='dna'&&<div>
           <SL>Composition</SL><H2>The makeup of crime has transformed</H2>
           <Ds>Grand larceny + felony assault now account for 64% of all major crime, up from 30% in 1993. Burglary and auto theft went from half to a fifth.</Ds>
@@ -758,8 +845,8 @@ export default function App() {
             <LineChart data={idx} margin={{top:5,right:5,left:-10,bottom:0}}>
               <CartesianGrid strokeDasharray="3 3" stroke="#eee"/><XAxis dataKey="y" tick={{fontSize:10}} stroke="#999"/>
               <YAxis tick={{fontSize:10}} stroke="#999" domain={[0,160]}/><ReferenceLine y={100} stroke="#ccc" strokeDasharray="4 4"/>
-              <Tooltip content={({active,payload,label})=>{if(!active||!payload?.length)return null;const s=[...payload].sort((a,b)=>b.value-a.value);return <div style={{background:'#fff',border:'1px solid #ddd',padding:'6px 10px',fontSize:11,boxShadow:'0 2px 8px rgba(0,0,0,0.08)'}}><div style={{fontWeight:700,marginBottom:3}}>{label}</div>{s.map((p,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',gap:10,opacity:hCat&&hCat!==p.dataKey?0.3:1}}><span style={{color:p.color}}>{CL[p.dataKey]}</span><span style={{fontWeight:600}}>{Number(p.value).toFixed(0)}</span></div>)}</div>;}}/>
-              {K7.map(c=><Line key={c} type="monotone" dataKey={c} stroke={CC[c]} strokeWidth={hCat===null||hCat===c?2.5:0.7} strokeOpacity={hCat===null||hCat===c?1:0.15} dot={false}/>)}
+              <Tooltip content={({active,payload,label})=>{if(!active||!payload?.length)return null;const s=[...payload].sort((a,b)=>b.value-a.value);return <div style={{background:'#fff',border:'1px solid #ddd',padding:'6px 10px',fontSize:11,boxShadow:'0 2px 8px rgba(0,0,0,0.08)'}}><div style={{fontWeight:700,marginBottom:3}}>{label}</div>{s.map((p,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',gap:10}}><span style={{color:p.color}}>{CL[p.dataKey]}</span><span style={{fontWeight:600}}>{Number(p.value).toFixed(0)}</span></div>)}</div>;}}/>
+              {K7.map(c=><Line key={c} type="monotone" dataKey={c} stroke={CC[c]} strokeWidth={2.5} dot={false}/>)}
             </LineChart>
           </ResponsiveContainer>
         </div>}
@@ -1027,7 +1114,6 @@ export default function App() {
           </div>
         </section>
 
-        {/* NEW TEASER CARD LINKING TO HISTORIC VIEW */}
         <section className="mb-10 bg-[#050507] text-white p-6 md:p-8 rounded-lg flex flex-col md:flex-row justify-between items-center gap-6 shadow-xl">
           <div>
             <div className="text-[11px] font-black uppercase tracking-[0.15em] text-[#ff7c53] mb-2 flex items-center gap-2"><Activity size={14}/> Deep Dive Analysis</div>
@@ -1046,6 +1132,21 @@ export default function App() {
           period={parsedData.period}
           rawData={rawData}
         />
+
+        <section className="mb-12 pt-8 border-t border-gray-200">
+          <h2 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 mb-5">Trends to Watch</h2>
+          <div className={`grid grid-cols-1 md:grid-cols-2 ${trendCards.length === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-8`}>
+            {trendCards.map(card => {
+              const IconComp = card.icon;
+              return (
+                <div key={card.id} className="p-6 bg-gray-50 rounded-sm">
+                  <div className="flex items-center gap-2 mb-3"><IconComp size={16} className="text-black" /><h3 className="text-[10px] font-black uppercase tracking-widest text-black">{card.title}</h3></div>
+                  <div className="font-serif text-[15px] leading-relaxed text-gray-700">{renderMarkdown(card.content)}</div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
 
         <section className="mb-12 pt-8 border-t-[3px] border-black">
           <div className="flex flex-col md:flex-row justify-between items-baseline mb-5">
