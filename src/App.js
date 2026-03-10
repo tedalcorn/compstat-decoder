@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+\import React, { useState, useEffect, useMemo, useCallback } from 'react';
 
 /* ------------------------------------------------------------------ */
 /* 1. DATA CONSTANTS & CONFIGURATION                                  */
@@ -128,7 +128,6 @@ const renderMarkdown = (node) => {
       return part;
     });
   }
-  // Recursively process React elements so **markdown** inside JSX children works
   if (React.isValidElement(node)) {
     const { children, ...rest } = node.props;
     if (children) {
@@ -265,11 +264,10 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData }) => {
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [history, setHistory] = useState([]); // array of {q, a}
+  const [history, setHistory] = useState([]);
 
   const suggestedQuestions = activeGeo === 'citywide' ? CITYWIDE_QUESTIONS : LOCAL_QUESTIONS;
 
-  // Reset conversation when geography or time period changes
   useEffect(() => {
     setQuery('');
     setResponse('');
@@ -292,7 +290,6 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData }) => {
       .map(o => `  ${o.name}: ${formatPct(o.hist['31_yr_pct'])} vs 1993 peak`)
       .join('\n');
 
-    // Build compact precinct comparison table when on citywide
     let precinctTable = '';
     if (activeGeo === 'citywide' && rawData) {
       const pctKeys = Object.keys(rawData).filter(k => k.includes('Precinct'));
@@ -307,7 +304,7 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData }) => {
           let total = 0;
           const crimeNums = Object.entries(crimes).map(([name, stats]) => {
             const c = safeNum(activeTab === 'ytd' ? stats?.year_to_date?.current_year : stats?.week_to_date?.current_year);
-            total += (felonies[name] ? c : 0); // only count 7 major for total
+            total += (felonies[name] ? c : 0);
             return `${name}:${c}`;
           });
           const rate = pop > 0 ? ((total / pop) * 10000).toFixed(1) : '?';
@@ -343,6 +340,9 @@ ${historicAnchor ? `MOST HISTORICALLY IMPROVED: ${historicAnchor.name} (${format
   const handleQuery = async (q) => {
     const questionText = q || query;
     if (!questionText.trim()) return;
+    
+    // Clear input immediately and start loading
+    setQuery('');
     setLoading(true);
     setError('');
     setResponse('');
@@ -350,7 +350,6 @@ ${historicAnchor ? `MOST HISTORICALLY IMPROVED: ${historicAnchor.name} (${format
     const dataContext = buildContext();
     const systemPrompt = `You are a concise, plain-language crime data analyst for Vital City, a NYC policy publication. You have access to current NYPD CompStat data shown below, including precinct-level breakdowns when available. Answer the user's question directly and precisely — 2 to 4 sentences maximum. Cite specific numbers from the data. When comparing precincts, use per-capita rates (per 10k residents) rather than raw counts, since precincts vary enormously in population. Do not editorialize beyond what the data supports. If asked something the data cannot answer, say so in one sentence. Never use bullet points or headers. Write in flowing prose.`;
 
-    // Build messages including conversation history for follow-ups
     const messages = [];
     history.forEach(h => {
       messages.push({ role: 'user', content: h.q });
@@ -364,7 +363,6 @@ ${historicAnchor ? `MOST HISTORICALLY IMPROVED: ${historicAnchor.name} (${format
     });
 
     try {
-      // Corrected line 207: now points to local Vercel API
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -374,15 +372,12 @@ ${historicAnchor ? `MOST HISTORICALLY IMPROVED: ${historicAnchor.name} (${format
           messages
         })
       });
-      
       if (!res.ok) throw new Error(`API returned ${res.status}`);
       const data = await res.json();
-      
       const text = data?.content?.[0]?.text || '';
       if (!text) throw new Error('Empty response');
       setResponse(text);
       setHistory(prev => [...prev, { q: questionText, a: text }]);
-      setQuery(questionText);
     } catch (e) {
       console.error(e);
       setError('Unable to get a response. Try again in a moment.');
@@ -406,7 +401,6 @@ ${historicAnchor ? `MOST HISTORICALLY IMPROVED: ${historicAnchor.name} (${format
         <span className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Ask About This Data</span>
       </div>
 
-      {/* Conversation history */}
       {history.length > 0 && (
         <div className="mb-4 space-y-4">
           {history.map((h, i) => (
@@ -418,7 +412,6 @@ ${historicAnchor ? `MOST HISTORICALLY IMPROVED: ${historicAnchor.name} (${format
         </div>
       )}
 
-      {/* Active response area */}
       {loading && (
         <div className="border border-gray-200 rounded bg-gray-50 px-5 py-5 mb-4">
           <p className="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-3">{query}</p>
@@ -439,11 +432,10 @@ ${historicAnchor ? `MOST HISTORICALLY IMPROVED: ${historicAnchor.name} (${format
         </div>
       )}
 
-      {/* Input area — always visible */}
       <div className="flex gap-2 mb-4">
         <input
           type="text"
-          value={hasResponse && !loading ? '' : query}
+          value={query}
           onChange={e => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={history.length > 0
@@ -455,7 +447,7 @@ ${historicAnchor ? `MOST HISTORICALLY IMPROVED: ${historicAnchor.name} (${format
         />
         <button
           onClick={() => handleQuery()}
-          disabled={loading || !(hasResponse ? true : query.trim())}
+          disabled={loading || !query.trim()}
           className="flex items-center gap-2 px-5 py-3 bg-black text-white text-[11px] font-black uppercase tracking-widest rounded disabled:opacity-30 hover:bg-gray-800 transition-colors"
         >
           <Send size={13} />
@@ -472,7 +464,6 @@ ${historicAnchor ? `MOST HISTORICALLY IMPROVED: ${historicAnchor.name} (${format
         )}
       </div>
 
-      {/* Suggested questions */}
       <div className="flex flex-wrap gap-2">
         {suggestedQuestions
           .filter(q => !history.some(h => h.q === q))
@@ -480,7 +471,7 @@ ${historicAnchor ? `MOST HISTORICALLY IMPROVED: ${historicAnchor.name} (${format
           .map(q => (
             <button
               key={q}
-              onClick={() => { setQuery(q); handleQuery(q); }}
+              onClick={() => { handleQuery(q); }}
               disabled={loading}
               className="text-[11px] font-medium text-gray-600 border border-gray-200 rounded-full px-3 py-1.5 hover:border-black hover:text-black transition-colors bg-white disabled:opacity-40"
             >
@@ -512,7 +503,6 @@ export default function App() {
     setLoading(true);
     setFetchError(false);
     
-    // Try raw URL first, then GitHub API as fallback
     const RAW_URL = `https://raw.githubusercontent.com/${GITHUB_USER}/${REPO_NAME}/main/data/latest_compstat.json`;
     const API_URL = `https://api.github.com/repos/${GITHUB_USER}/${REPO_NAME}/contents/data/latest_compstat.json`;
     
@@ -523,7 +513,6 @@ export default function App() {
     };
     
     try {
-      // Attempt 1: raw URL (fastest, no decode needed)
       const resp = await tryFetch(`${RAW_URL}?t=${Date.now()}`);
       const json = await resp.json();
       if (json && json.citywide) { setRawData(json); return; }
@@ -531,7 +520,6 @@ export default function App() {
     } catch (e1) {
       console.warn("Raw fetch failed:", e1.message, "— trying GitHub API...");
       try {
-        // Attempt 2: GitHub API (returns base64-encoded content)
         const resp = await tryFetch(API_URL);
         const meta = await resp.json();
         if (meta.content) {
@@ -539,7 +527,6 @@ export default function App() {
           const json = JSON.parse(decoded);
           if (json && json.citywide) { setRawData(json); return; }
         }
-        // Attempt 3: use the download_url from the API response
         if (meta.download_url) {
           const resp2 = await tryFetch(meta.download_url);
           const json = await resp2.json();
