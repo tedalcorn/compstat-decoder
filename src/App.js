@@ -216,7 +216,6 @@ const calcPct = (current, prior) => {
   return ((c - p) / p) * 100;
 };
 const formatPct = (v) => (typeof v !== 'number' || Number.isNaN(v)) ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)}%`;
-const formatSignedInt = (v) => { const n = safeNum(v); return `${n > 0 ? "+" : ""}${n.toLocaleString()}`; };
 const formatPop = (n) => {
   if (!n) return '0';
   if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
