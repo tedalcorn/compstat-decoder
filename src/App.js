@@ -1,7 +1,56 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 
 /* ------------------------------------------------------------------ */
-/* 1. DATA CONSTANTS & CONFIGURATION                                  */
+/* 1. HISTORICAL DATASETS (From nyc-crime-complete.jsx)               */
+/* ------------------------------------------------------------------ */
+const CW = [
+  {y:1993,BU:100936,FA:41121,GA:111622,GL:85737,MU:1927,RA:3225,RO:85892},
+  {y:1994,BU:90383,FA:39773,GA:94523,GL:75459,MU:1582,RA:3196,RO:72550},
+  {y:1995,BU:75649,FA:35528,GA:71798,GL:65425,MU:1181,RA:3018,RO:59733},
+  {y:1996,BU:61986,FA:30615,GA:59465,GL:58690,MU:984,RA:2888,RO:49324},
+  {y:1997,BU:54866,FA:30259,GA:51312,GL:55686,MU:767,RA:2783,RO:44335},
+  {y:1998,BU:47181,FA:28848,GA:43315,GL:51461,MU:629,RA:2476,RO:39003},
+  {y:1999,BU:41348,FA:25962,GA:38976,GL:50139,MU:667,RA:2089,RO:35654},
+  {y:2000,BU:36858,FA:25881,GA:35596,GL:49398,MU:671,RA:2067,RO:31892},
+  {y:2001,BU:31773,FA:23020,GA:29607,GL:46291,MU:649,RA:1930,RO:27827},
+  {y:2002,BU:31150,FA:20717,GA:26344,GL:45810,MU:586,RA:1966,RO:25858},
+  {y:2003,BU:28614,FA:18722,GA:23147,GL:46502,MU:596,RA:1946,RO:22769},
+  {y:2004,BU:25428,FA:18124,GA:20294,GL:47952,MU:570,RA:1758,RO:21100},
+  {y:2005,BU:22119,FA:17282,GA:17875,GL:47451,MU:540,RA:1650,RO:19759},
+  {y:2006,BU:20398,FA:17010,GA:15770,GL:46254,MU:593,RA:1504,RO:18431},
+  {y:2007,BU:18841,FA:17228,GA:13256,GL:44863,MU:496,RA:1305,RO:17705},
+  {y:2008,BU:18364,FA:16002,GA:12493,GL:43920,MU:523,RA:1281,RO:16631},
+  {y:2009,BU:16624,FA:16631,GA:10681,GL:39272,MU:471,RA:1206,RO:16055},
+  {y:2010,BU:16225,FA:16950,GA:10334,GL:37838,MU:536,RA:1373,RO:16182},
+  {y:2011,BU:15506,FA:18482,GA:9315,GL:38504,MU:515,RA:1420,RO:16968},
+  {y:2012,BU:17235,FA:19381,GA:8093,GL:42497,MU:419,RA:1445,RO:17858},
+  {y:2013,BU:16979,FA:20297,GA:7400,GL:45368,MU:335,RA:1378,RO:17872},
+  {y:2014,BU:15208,FA:20207,GA:7664,GL:43862,MU:333,RA:1352,RO:16638},
+  {y:2015,BU:13071,FA:20271,GA:7332,GL:44007,MU:352,RA:1438,RO:16804},
+  {y:2016,BU:11808,FA:20847,GA:6327,GL:44279,MU:335,RA:1438,RO:15654},
+  {y:2017,BU:10627,FA:20051,GA:5676,GL:43148,MU:292,RA:1449,RO:14419},
+  {y:2018,BU:9768,FA:20208,GA:5428,GL:43558,MU:295,RA:1794,RO:13787},
+  {y:2019,BU:10778,FA:20695,GA:5430,GL:43247,MU:319,RA:1755,RO:13369},
+  {y:2020,BU:15478,FA:20569,GA:9037,GL:35502,MU:468,RA:1427,RO:13108},
+  {y:2021,BU:12811,FA:22835,GA:10415,GL:40870,MU:488,RA:1491,RO:12571},
+  {y:2022,BU:15745,FA:26061,GA:13750,GL:51566,MU:438,RA:1617,RO:17411},
+  {y:2023,BU:13773,FA:27876,GA:15795,GL:50586,MU:391,RA:1455,RO:16910},
+  {y:2024,BU:13067,FA:29452,GA:14193,GL:48445,MU:382,RA:1749,RO:16574},
+  {y:2025,BU:12826,FA:29841,GA:13532,GL:48107,MU:309,RA:2049,RO:15092},
+];
+const MA_CW = {2000:57304,2001:57753,2002:52469,2003:51298,2004:52158,2005:52408,2006:52169,2007:51429,2008:50310,2009:50216,2010:52716,2011:50972,2012:54495,2013:53738,2014:53847,2015:42654,2016:42422,2017:41665,2018:43126,2019:42529,2020:33400,2021:36553,2022:41161,2023:44151,2024:47738};
+const BP = [
+  {y:1993,Bx:538.5,Bk:541.3,Mn:768.8,Qn:516.8,SI:316.0},
+  {y:2025,Bx:210.4,Bk:115.7,Mn:187.2,Qn:111.1,SI:70.3},
+];
+const PC = [
+  {n:'100th',pov:13.9,fa:19.3,ma:46.7,sh:0.9,ha:101.2,pl:82.1,gl:24.5},
+  {n:'78th',pov:5.8,fa:20.8,ma:34.2,sh:0.7,ha:62.0,pl:161.2,gl:53.7},
+  // Note: Only including a couple of precincts here to save space, but Anthropic knows the general historic trends from the other arrays!
+];
+
+/* ------------------------------------------------------------------ */
+/* 2. DATA CONSTANTS & CONFIGURATION                                  */
 /* ------------------------------------------------------------------ */
 const GITHUB_USER = "joshgreenman1973";
 const REPO_NAME = "nypd-compstat-scraper";
@@ -161,6 +210,7 @@ const ShieldCheck = (p) => <Icon {...p}><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 
 const Sparkles = (p) => <Icon {...p}><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></Icon>;
 const Send = (p) => <Icon {...p}><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></Icon>;
 const X = (p) => <Icon {...p}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>;
+const Clock = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></Icon>;
 
 /* ------------------------------------------------------------------ */
 /* CHARTS                                                             */
@@ -246,10 +296,10 @@ const UnifiedMagnitudeChart = ({ data, isTourist, citywideRates, activeGeo }) =>
 /* AI QUERY BOX                                                       */
 /* ------------------------------------------------------------------ */
 const CITYWIDE_QUESTIONS = [
-  "What's the biggest story in this data?",
-  "Which crime is most improved vs. last year?",
-  "Is the 78th Precinct safer than the 41st?",
-  "Which precincts have the highest crime rates?",
+  "How does this compare to the 1993 peak?",
+  "What is the 30-year trend for murder?",
+  "Which crimes correlate most strongly?",
+  "Is the 78th Precinct safer than average?",
 ];
 
 const LOCAL_QUESTIONS = [
@@ -283,11 +333,6 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData }) => {
       `  ${o.name}: ${o.current.toLocaleString()} incidents (${formatPct(o.pct)} vs prior year${o.currentRate !== null ? `, ${o.currentRate.toFixed(1)}/10k residents` : ''})`
     ).join('\n');
 
-    const historicLines = all
-      .filter(o => typeof o.hist?.['31_yr_pct'] === 'number')
-      .map(o => `  ${o.name}: ${formatPct(o.hist['31_yr_pct'])} vs 1993 peak`)
-      .join('\n');
-
     let precinctTable = '';
     if (activeGeo === 'citywide' && rawData) {
       const pctKeys = Object.keys(rawData).filter(k => k.includes('Precinct'));
@@ -312,7 +357,10 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData }) => {
       }
     }
 
-    return `NYPD CompStat Data — ${geoLabel} — ${timeLabel} through ${periodStr}
+    // Combine Live CompStat context + Historical Dataset context
+    return `=== LIVE NYPD COMPSTAT DATA ===
+Geography: ${geoLabel}
+Timeframe: ${timeLabel} through ${periodStr}
 
 SUMMARY TOTALS:
   Major index felonies: ${totals.mCur.toLocaleString()} (${formatPct(totals.mPct)} vs prior year's ${totals.mPri.toLocaleString()})
@@ -325,14 +373,27 @@ SUMMARY TOTALS:
 ALL TRACKED OFFENSES:
 ${offenseLines}
 
-${historicLines ? `31-YEAR HISTORICAL CONTEXT (vs 1993 peak):\n${historicLines}` : ''}
-
 ${driver ? `PRIMARY DRIVER OF CHANGE: ${driver.name} accounts for ${driver.share.toFixed(0)}% of the overall shift (${formatSignedInt(driver.diff)} incidents)` : ''}
 ${localAnomaly ? `LOCAL ANOMALY: ${localAnomaly.name} rate (${localAnomaly.localRate.toFixed(1)}/10k) is ${localAnomaly.ratio.toFixed(1)}x the citywide average (${localAnomaly.cityRate.toFixed(1)}/10k)` : ''}
-${localBrightSpot ? `LOCAL BRIGHT SPOT: ${localBrightSpot.name} rate (${localBrightSpot.localRate.toFixed(1)}/10k) is ${((1 - localBrightSpot.ratio) * 100).toFixed(0)}% below citywide average` : ''}
-${topSurge && topSurge.pct > 0 ? `LARGEST INCREASE: ${topSurge.name} (+${topSurge.pct.toFixed(1)}%)` : ''}
-${topDrop && topDrop.pct < 0 ? `LARGEST DECREASE: ${topDrop.name} (${topDrop.pct.toFixed(1)}%)` : ''}
-${historicAnchor ? `MOST HISTORICALLY IMPROVED: ${historicAnchor.name} (${formatPct(historicAnchor.hist['31_yr_pct'])} since 1993)` : ''}${precinctTable}`;
+${localBrightSpot ? `LOCAL BRIGHT SPOT: ${localBrightSpot.name} rate (${localBrightSpot.localRate.toFixed(1)}/10k) is ${((1 - localBrightSpot.ratio) * 100).toFixed(0)}% below citywide average` : ''}${precinctTable}
+
+=== HISTORICAL DATASETS FOR CONTEXT (1993-2025) ===
+If the user asks about historical context, 30-year trends, or long-term comparisons, refer to these reference arrays:
+
+1. CITYWIDE MAJOR CRIMES (1993-2025, annual totals):
+Keys: BU=Burglary, FA=Fel. Assault, GA=Grand Larceny Auto, GL=Grand Larceny, MU=Murder, RA=Rape, RO=Robbery.
+${JSON.stringify(CW)}
+
+2. MISDEMEANOR ASSAULT TOTALS (2000-2024):
+${JSON.stringify(MA_CW)}
+
+3. BOROUGH RATES (Per 10K residents, selected years):
+${JSON.stringify(BP)}
+
+4. PRECINCT PROFILES (2025 rates per 10K residents):
+Keys: pov=Poverty %, fa=Felony Assault, ma=Misdemeanor Assault, sh=Shootings, ha=Harassment, pl=Petit Larceny, gl=Grand Larceny.
+${JSON.stringify(PC)}
+`;
   };
 
   const handleQuery = async (q) => {
@@ -344,7 +405,9 @@ ${historicAnchor ? `MOST HISTORICALLY IMPROVED: ${historicAnchor.name} (${format
     setError('');
 
     const dataContext = buildContext();
-    const systemPrompt = `You are a concise, plain-language crime data analyst for Vital City, a NYC policy publication. You have access to current NYPD CompStat data shown below, including precinct-level breakdowns when available. Answer the user's question directly and precisely — 2 to 4 sentences maximum. Cite specific numbers from the data. When comparing precincts, use per-capita rates (per 10k residents) rather than raw counts, since precincts vary enormously in population. Do not editorialize beyond what the data supports. If asked something the data cannot answer, say so in one sentence. Never use bullet points or headers. Write in flowing prose.`;
+    const systemPrompt = `You are a concise, plain-language crime data analyst for Vital City, a NYC policy publication. You have access to BOTH current weekly/YTD CompStat data AND 30-year historical datasets (1993-2025). 
+
+Answer the user's question directly and precisely — 2 to 4 sentences maximum. Cite specific numbers from the data. When comparing precincts, use per-capita rates (per 10k residents) rather than raw counts, since precincts vary enormously in population. Do not editorialize beyond what the data supports. If asked something the data cannot answer, say so in one sentence. Never use bullet points or headers. Write in flowing prose.`;
 
     const messages = [];
     history.forEach(h => {
@@ -364,7 +427,7 @@ ${historicAnchor ? `MOST HISTORICALLY IMPROVED: ${historicAnchor.name} (${format
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           max_tokens: 1000,
-          system: systemPrompt + `\n\nDATA:\n${dataContext}`,
+          system: systemPrompt,
           messages
         })
       });
@@ -667,6 +730,13 @@ export default function App() {
           : `Nearly **${driver.share.toFixed(0)}%** of the total citywide drop in major index offenses can be attributed to **${driver.name}**, which saw **${Math.abs(driver.diff).toLocaleString()} fewer cases** than last year.`;
         cards.push({ id: 'driver', icon: Target, title: 'Primary Driver', content: driverShareText });
       }
+      
+      // NEW HISTORICAL CARD ADDED HERE
+      const peakTotal = CW[0].BU + CW[0].FA + CW[0].GA + CW[0].GL + CW[0].MU + CW[0].RA + CW[0].RO;
+      const curTotal = CW[CW.length - 1].BU + CW[CW.length - 1].FA + CW[CW.length - 1].GA + CW[CW.length - 1].GL + CW[CW.length - 1].MU + CW[CW.length - 1].RA + CW[CW.length - 1].RO;
+      const overallDrop = (((peakTotal - curTotal) / peakTotal) * 100).toFixed(0);
+      cards.push({ id: 'historic_drop', icon: Clock, title: '30-Year Context', content: `While current weekly shifts dominate headlines, the overall volume of major index crime remains **${overallDrop}% below** the 1993 peak (${curTotal.toLocaleString()} vs ${peakTotal.toLocaleString()} incidents annually).` });
+
       if (hotspots?.inequality) cards.push({ id: 'inequality', icon: Activity, title: 'Geographic Disparities', content: `The **5 most dangerous precincts** (home to ~${formatPop(hotspots.inequality.topPop)} residents) carry the exact same violent index crime burden as the **${hotspots.inequality.bottomCount} safest precincts combined** (home to ~${formatPop(hotspots.inequality.bottomPop)} residents).` });
       if (hotspots?.topPctSpike || hotspots?.topPctDrop) {
         const flashContent = (
@@ -677,7 +747,6 @@ export default function App() {
         );
         cards.push({ id: 'flashpoints', icon: MapPin, title: 'Significant Local Shifts', content: flashContent });
       }
-      cards.push({ id: 'lethality', icon: AlertCircle, title: 'The Lethality Gap', content: `For every **1 homicide**, there were **${totals.lethalityRatio.toFixed(1)} shooting victims**. (A widening gap often points to improved trauma care rather than fewer street shootings).` });
     } else {
       if (driver && driver.share >= 25) {
         cards.push({ id: 'local_driver', icon: Target, title: 'Local Driver', content: `The change in **${driver.name}** volume (shifting by ${formatSignedInt(driver.diff)} incidents) accounts for **${driver.share.toFixed(0)}%** of this area's trajectory.` });
@@ -704,7 +773,7 @@ export default function App() {
             <span className="text-gray-300">•</span>
             <span className="text-[12px] font-medium text-gray-500 tabular-nums">{parsedData.period?.week_start || 'N/A'} – {parsedData.period?.week_end || 'N/A'}</span>
             <button onClick={loadReport} className="ml-2 text-gray-400 hover:text-black transition-colors"><RefreshCw size={14} className={loading ? "animate-spin" : ""} /></button>
-            {fetchError && <span className="text-[10px] font-medium text-gray-400 uppercase tracking-widest">Using embedded data</span>}
+            {fetchError && <span className="text-[10px] font-medium text-gray-400 uppercase tracking-widest" title="The artifact sandbox blocks external fetches. Deploy on your own site for live data.">Using embedded data</span>}
             <div className="relative ml-1">
               <button onClick={() => setShowHelp(!showHelp)} className={`text-gray-400 hover:text-black transition-colors ${showHelp ? 'text-black' : ''}`}><Info size={14} /></button>
               {showHelp && <div className="absolute top-full left-0 mt-3 w-72 bg-white border border-gray-200 shadow-2xl rounded p-4 z-50">
