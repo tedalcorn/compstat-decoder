@@ -116,7 +116,7 @@ const toOrdinalPrecinct = (n) => {
 };
 
 /* ------------------------------------------------------------------ */
-/* MARKDOWN RENDERER (used in trend cards and elsewhere)              */
+/* MARKDOWN RENDERER                                                  */
 /* ------------------------------------------------------------------ */
 const renderMarkdown = (node) => {
   if (typeof node === 'string') {
@@ -261,7 +261,6 @@ const LOCAL_QUESTIONS = [
 
 const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData }) => {
   const [query, setQuery] = useState('');
-  const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [history, setHistory] = useState([]);
@@ -270,7 +269,6 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData }) => {
 
   useEffect(() => {
     setQuery('');
-    setResponse('');
     setError('');
     setHistory([]);
   }, [activeGeo, activeTab]);
@@ -344,7 +342,6 @@ ${historicAnchor ? `MOST HISTORICALLY IMPROVED: ${historicAnchor.name} (${format
     setQuery('');
     setLoading(true);
     setError('');
-    setResponse('');
 
     const dataContext = buildContext();
     const systemPrompt = `You are a concise, plain-language crime data analyst for Vital City, a NYC policy publication. You have access to current NYPD CompStat data shown below, including precinct-level breakdowns when available. Answer the user's question directly and precisely — 2 to 4 sentences maximum. Cite specific numbers from the data. When comparing precincts, use per-capita rates (per 10k residents) rather than raw counts, since precincts vary enormously in population. Do not editorialize beyond what the data supports. If asked something the data cannot answer, say so in one sentence. Never use bullet points or headers. Write in flowing prose.`;
@@ -375,7 +372,6 @@ ${historicAnchor ? `MOST HISTORICALLY IMPROVED: ${historicAnchor.name} (${format
       const data = await res.json();
       const text = data?.content?.[0]?.text || '';
       if (!text) throw new Error('Empty response');
-      setResponse(text);
       setHistory(prev => [...prev, { q: questionText, a: text }]);
     } catch (e) {
       console.error(e);
@@ -389,9 +385,7 @@ ${historicAnchor ? `MOST HISTORICALLY IMPROVED: ${historicAnchor.name} (${format
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleQuery(); }
   };
 
-  const startOver = () => { setQuery(''); setResponse(''); setError(''); setHistory([]); };
-
-  const hasResponse = response || error;
+  const startOver = () => { setQuery(''); setError(''); setHistory([]); };
 
   return (
     <section className="mb-10 pt-8 border-t border-gray-200">
@@ -710,7 +704,7 @@ export default function App() {
             <span className="text-gray-300">•</span>
             <span className="text-[12px] font-medium text-gray-500 tabular-nums">{parsedData.period?.week_start || 'N/A'} – {parsedData.period?.week_end || 'N/A'}</span>
             <button onClick={loadReport} className="ml-2 text-gray-400 hover:text-black transition-colors"><RefreshCw size={14} className={loading ? "animate-spin" : ""} /></button>
-            {fetchError && <span className="text-[10px] font-medium text-gray-400 uppercase tracking-widest" title="The artifact sandbox blocks external fetches. Deploy on your own site for live data.">Using embedded data</span>}
+            {fetchError && <span className="text-[10px] font-medium text-gray-400 uppercase tracking-widest">Using embedded data</span>}
             <div className="relative ml-1">
               <button onClick={() => setShowHelp(!showHelp)} className={`text-gray-400 hover:text-black transition-colors ${showHelp ? 'text-black' : ''}`}><Info size={14} /></button>
               {showHelp && <div className="absolute top-full left-0 mt-3 w-72 bg-white border border-gray-200 shadow-2xl rounded p-4 z-50">
@@ -789,7 +783,6 @@ export default function App() {
           </div>
         </section>
 
-        {/* AI Query Box */}
         <QueryBox
           parsedData={parsedData}
           activeGeo={activeGeo}
