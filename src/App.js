@@ -734,20 +734,42 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData, priorYear
     // Compute summary totals for both views
     const felonyEntries = Object.entries(felonies);
     let ytdMCur = 0, ytdMPri = 0, wtdMCur = 0, wtdMPri = 0;
-    let ytdVCur = 0, ytdPCur = 0, ytdMurder = 0, wtdMurder = 0;
+    let ytdVCur = 0, ytdVPri = 0, ytdPCur = 0, ytdPPri = 0, wtdVCur = 0, wtdPCur = 0;
+    let ytdMurder = 0, wtdMurder = 0, ytdMurderPri = 0;
     let ytdShootingVic = 0, wtdShootingVic = 0;
+    const perOffenseYtdShares = [];
+    const perOffenseWtdChanges = [];
     felonyEntries.forEach(([name, stats]) => {
       const b = extractBoth(stats);
       ytdMCur += b.ytdCur; ytdMPri += b.ytdPri;
       wtdMCur += b.wtdCur; wtdMPri += b.wtdPri;
-      if (name === 'Murder') { ytdMurder = b.ytdCur; wtdMurder = b.wtdCur; }
-      if (VIOLENT_CRIMES.includes(name)) ytdVCur += b.ytdCur;
-      if (PROPERTY_CRIMES.includes(name)) ytdPCur += b.ytdCur;
+      if (name === 'Murder') { ytdMurder = b.ytdCur; wtdMurder = b.wtdCur; ytdMurderPri = b.ytdPri; }
+      if (VIOLENT_CRIMES.includes(name)) { ytdVCur += b.ytdCur; ytdVPri += b.ytdPri; wtdVCur += b.wtdCur; }
+      if (PROPERTY_CRIMES.includes(name)) { ytdPCur += b.ytdCur; ytdPPri += b.ytdPri; wtdPCur += b.wtdCur; }
+      perOffenseYtdShares.push({ name, cur: b.ytdCur, pri: b.ytdPri });
+      perOffenseWtdChanges.push({ name, cur: b.wtdCur, pri: b.wtdPri });
     });
     Object.entries(addl).forEach(([name, stats]) => {
       const b = extractBoth(stats);
       if (name === 'Shooting Vic.') { ytdShootingVic = b.ytdCur; wtdShootingVic = b.wtdCur; }
     });
+
+    // Pre-compute derived ratios so the model doesn't have to do math
+    const ytdTotalPct = formatPct(calcPct(ytdMCur, ytdMPri));
+    const wtdTotalPct = formatPct(calcPct(wtdMCur, wtdMPri));
+    const ytdViolentPct = ((ytdVCur / (ytdMCur || 1)) * 100).toFixed(1);
+    const ytdPropertyPct = ((ytdPCur / (ytdMCur || 1)) * 100).toFixed(1);
+    const ytdViolentChangePct = formatPct(calcPct(ytdVCur, ytdVPri));
+    const ytdPropertyChangePct = formatPct(calcPct(ytdPCur, ytdPPri));
+    const perOffenseYtdLines = perOffenseYtdShares.map(o => {
+      const share = ((o.cur / (ytdMCur || 1)) * 100).toFixed(1);
+      const chg = formatPct(calcPct(o.cur, o.pri));
+      return `  ${o.name}: ${share}% of total (${o.cur.toLocaleString()} incidents, ${chg} vs ${priorYear})`;
+    }).join('\n');
+    const perOffenseWtdLines = perOffenseWtdChanges.map(o => {
+      const chg = formatPct(calcPct(o.cur, o.pri));
+      return `  ${o.name}: ${o.cur.toLocaleString()} vs ${o.pri.toLocaleString()} (${chg})`;
+    }).join('\n');
 
     // Primary driver (YTD)
     const ytdDiff = ytdMCur - ytdMPri;
@@ -794,16 +816,25 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData, priorYear
 Geography: ${geoLabel}
 Current year: ${currentYear} | Prior year: ${priorYear}
 
-YEAR-TO-DATE TOTALS:
-  Major index felonies: ${ytdMCur.toLocaleString()} vs ${ytdMPri.toLocaleString()} (${formatPct(calcPct(ytdMCur, ytdMPri))})
-  Violent share: ${((ytdVCur / (ytdMCur || 1)) * 100).toFixed(0)}% | Property share: ${((ytdPCur / (ytdMCur || 1)) * 100).toFixed(0)}%
-  Murders: ${ytdMurder} | Shooting Victims: ${ytdShootingVic}
+YEAR-TO-DATE SUMMARY:
+  Total major index felonies: ${ytdMCur.toLocaleString()} (${currentYear}) vs ${ytdMPri.toLocaleString()} (${priorYear}) = ${ytdTotalPct} change
+  Violent crime total: ${ytdVCur.toLocaleString()} (${ytdViolentPct}% of index total, ${ytdViolentChangePct} vs ${priorYear})
+  Property crime total: ${ytdPCur.toLocaleString()} (${ytdPropertyPct}% of index total, ${ytdPropertyChangePct} vs ${priorYear})
+  Murders: ${ytdMurder} (${currentYear}) vs ${ytdMurderPri} (${priorYear}) = ${formatPct(calcPct(ytdMurder, ytdMurderPri))} change
+  Shooting Victims: ${ytdShootingVic}
 
-WEEKLY TOTALS (week of ${periodStr}):
-  Major index felonies: ${wtdMCur.toLocaleString()} vs ${wtdMPri.toLocaleString()} (${formatPct(calcPct(wtdMCur, wtdMPri))})
+WEEKLY SUMMARY (week of ${periodStr}):
+  Total major index felonies: ${wtdMCur.toLocaleString()} (${currentYear}) vs ${wtdMPri.toLocaleString()} (${priorYear}) = ${wtdTotalPct} change
+  Violent crime: ${wtdVCur.toLocaleString()} | Property crime: ${wtdPCur.toLocaleString()}
   Murders: ${wtdMurder} | Shooting Victims: ${wtdShootingVic}
 
-ALL TRACKED OFFENSES (both YTD and weekly):
+YTD SHARE OF TOTAL BY OFFENSE (pre-computed — use these directly):
+${perOffenseYtdLines}
+
+WEEKLY CHANGE BY OFFENSE (pre-computed — use these directly):
+${perOffenseWtdLines}
+
+ALL TRACKED OFFENSES (both YTD and weekly, including non-index):
 ${offenseLines}
 
 ${driverLine}
@@ -824,14 +855,29 @@ ${JSON.stringify(CW)}
     setError('');
 
     const dataContext = buildContext();
-    const systemPrompt = `You are a concise, plain-language crime data analyst for the NYPD CompStat Ledger by Vital City. You have access to the COMPLETE dataset shown on the dashboard, including both weekly and year-to-date figures, precinct rankings, city comparisons, and historical data from 1993-2025.
+    const systemPrompt = `You are a concise, plain-language crime data analyst for the NYPD CompStat Ledger by Vital City. You have access to the COMPLETE dataset shown on the dashboard.
 
-CRITICAL RULES:
-- ONLY use numbers explicitly provided in the data context below. NEVER estimate, extrapolate, or generate plausible-sounding numbers.
-- If a specific figure is not in the provided data, say "That specific figure is not in the current dataset" rather than guessing.
-- When citing numbers, use the EXACT values from the data. Do not round differently or recalculate.
-- Both YTD and weekly data are provided for every offense. Use whichever the user asks about.
-- Answer in 2-4 sentences. Cite specific numbers. Never use bullet points or headers.`;
+ABSOLUTE RULE — NEVER MAKE ANYTHING UP:
+You must NEVER invent, estimate, extrapolate, or generate any number, statistic, or claim that is not explicitly present in the DATA section below. This is a hard rule with zero exceptions. If a user asks for a figure that is not in the data, you MUST say: "That figure isn't in the current dataset." Do NOT guess. Do NOT say "approximately" and then invent a number. Do NOT calculate figures the data doesn't support. Violating this rule produces misinformation about public safety.
+
+ACCURACY RULES:
+- Use ONLY the exact numbers from the data. Do not round, re-derive, or recompute — pre-computed percentages and shares are provided, so cite them directly.
+- Both YTD and weekly data are provided. Use whichever timeframe the user asks about. If they don't specify, default to YTD.
+- For "share of total" or "percentage of crime" questions, use the pre-computed YTD SHARE OF TOTAL section.
+- For "how much did X change" questions, use the pre-computed change percentages.
+- When you are unsure whether a number in the data answers the user's question, say so rather than forcing a match.
+
+FORMAT: Answer in 2-4 sentences. Cite specific numbers. Never use bullet points or headers.
+
+EXAMPLES OF CORRECT BEHAVIOR:
+Q: "What were the total major index offenses for the week?"
+A: Use the WEEKLY SUMMARY line's exact total — do not add up individual offenses yourself.
+
+Q: "What percentage of crime is robbery?"
+A: Use the pre-computed YTD SHARE OF TOTAL line for Robbery — do not divide yourself.
+
+Q: "What is the clearance rate for murder?"
+A: "That figure isn't in the current dataset. The dashboard tracks reported offenses but not clearance rates."`;
 
     const messages = [];
     history.forEach(h => {
@@ -848,7 +894,7 @@ CRITICAL RULES:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          max_tokens: 1000,
+          max_tokens: 1500,
           system: systemPrompt,
           messages
         })
