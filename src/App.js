@@ -1282,6 +1282,7 @@ export default function App() {
   }, [rawData, activeTab, mapCrime]);
 
   // Story of the Week: auto-generate AI summary on data load (citywide only)
+  // Pulls directly from rawData (not parsedData) so it always has both YTD and weekly figures
   useEffect(() => {
     if (activeGeo !== 'citywide') return;
     const dataKey = JSON.stringify(parsedData.totals);
@@ -1290,24 +1291,62 @@ export default function App() {
     const run = async () => {
       setSummaryLoading(true);
       try {
+        // Build context directly from rawData to include BOTH weekly and YTD
+        const cw = rawData['citywide'];
+        const felonies = cw?.seven_major_felonies || {};
+        const addl = cw?.additional_stats || {};
+        const period = rawData.period || {};
+
+        // Helper to safely extract numbers
+        const sn = (v) => { const n = Number(v); return isNaN(n) ? 0 : n; };
+
+        // Build weekly and YTD totals for all offenses
+        const offenseLines = [];
+        let ytdTotal = 0, ytdPrior = 0, wkTotal = 0, wkPrior = 0;
+        const allOffenses = { ...felonies, ...addl };
+        for (const [name, stats] of Object.entries(allOffenses)) {
+          const yc = sn(stats?.year_to_date?.current_year);
+          const yp = sn(stats?.year_to_date?.prior_year);
+          const yPct = stats?.year_to_date?.pct_change;
+          const wc = sn(stats?.week_to_date?.current_year);
+          const wp = sn(stats?.week_to_date?.prior_year);
+          const wPct = stats?.week_to_date?.pct_change;
+          if (felonies[name]) { ytdTotal += yc; ytdPrior += yp; wkTotal += wc; wkPrior += wp; }
+          offenseLines.push(`${name}: YTD ${yc} vs ${yp} (${yPct != null ? (yPct > 0 ? '+' : '') + Number(yPct).toFixed(1) + '%' : 'n/a'}) | Week ${wc} vs ${wp} (${wPct != null ? (wPct > 0 ? '+' : '') + Number(wPct).toFixed(1) + '%' : 'n/a'})`);
+        }
+
+        const ytdPct = ytdPrior > 0 ? ((ytdTotal - ytdPrior) / ytdPrior * 100).toFixed(1) : '0.0';
+        const wkPct = wkPrior > 0 ? ((wkTotal - wkPrior) / wkPrior * 100).toFixed(1) : '0.0';
+
         const ctx = [
-          `Period: ${parsedData.period?.week_start} – ${parsedData.period?.week_end}`,
-          `Total major index: ${parsedData.totals.mCur.toLocaleString()} (${parsedData.totals.mPct > 0 ? '+' : ''}${parsedData.totals.mPct.toFixed(1)}% vs ${priorYear})`,
-          `Violent: ${parsedData.totals.vCur.toLocaleString()}, Property: ${parsedData.totals.pCur.toLocaleString()}`,
-          parsedData.driver ? `Primary driver: ${parsedData.driver.name} (${parsedData.driver.share.toFixed(0)}% of overall shift)` : '',
-          `Murder: ${parsedData.totals.murder}, Shooting victims: ${parsedData.totals.shootingVic}`,
-          hotspots?.topPctSpike ? `Biggest precinct spike: ${hotspots.topPctSpike.crime} in ${hotspots.topPctSpike.precinct} (+${hotspots.topPctSpike.pct.toFixed(1)}%)` : '',
-          hotspots?.topPctDrop ? `Biggest precinct drop: ${hotspots.topPctDrop.crime} in ${hotspots.topPctDrop.precinct} (${hotspots.topPctDrop.pct.toFixed(1)}%)` : '',
-          hotspots?.inequality ? `Top 5 violent precincts (${formatPop(hotspots.inequality.topPop)} residents) match crime total of ${hotspots.inequality.bottomCount} safest precincts (${formatPop(hotspots.inequality.bottomPop)} residents)` : '',
-          'Key offenses: ' + parsedData.felonies.map(f => `${f.name}: ${f.current.toLocaleString()} (${f.pct > 0 ? '+' : ''}${(f.pct || 0).toFixed(1)}%)`).join(', '),
+          `=== NYPD COMPSTAT DATA (Week of ${period.week_start || '?'} – ${period.week_end || '?'}) ===`,
+          ``,
+          `MAJOR INDEX FELONY TOTALS:`,
+          `  YTD: ${ytdTotal.toLocaleString()} vs ${ytdPrior.toLocaleString()} last year (${ytdPct > 0 ? '+' : ''}${ytdPct}%)`,
+          `  This week: ${wkTotal.toLocaleString()} vs ${wkPrior.toLocaleString()} same week last year (${wkPct > 0 ? '+' : ''}${wkPct}%)`,
+          ``,
+          `ALL OFFENSES (YTD and Weekly):`,
+          ...offenseLines,
+          ``,
+          hotspots?.topPctSpike ? `BIGGEST PRECINCT SPIKE: ${hotspots.topPctSpike.crime} in ${hotspots.topPctSpike.precinct} (+${hotspots.topPctSpike.pct.toFixed(1)}%)` : '',
+          hotspots?.topPctDrop ? `BIGGEST PRECINCT DROP: ${hotspots.topPctDrop.crime} in ${hotspots.topPctDrop.precinct} (${hotspots.topPctDrop.pct.toFixed(1)}%)` : '',
+          hotspots?.inequality ? `INEQUALITY: Top 5 highest-crime precincts (${formatPop(hotspots.inequality.topPop)} residents) have the same violent crime total as the ${hotspots.inequality.bottomCount} safest precincts (${formatPop(hotspots.inequality.bottomPop)} residents)` : '',
         ].filter(Boolean).join('\n');
+
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             max_tokens: 250,
-            system: "You are a concise NYC crime data analyst writing for a data-literate audience. Write exactly 2 sentences — the first captures the single most newsworthy pattern this reporting period, the second adds essential context or a striking contrast. Cite specific numbers. No bullet points, no headers, no hedging.",
-            messages: [{ role: 'user', content: `Here is this week's NYC CompStat summary data:\n${ctx}\n\nWrite the 2-sentence headline summary.` }]
+            system: `You are a concise NYC crime data analyst writing a 2-sentence "Story of the Week" for a data-literate audience.
+
+ABSOLUTE RULES:
+- ONLY use numbers that appear EXACTLY in the data below. NEVER invent, estimate, or round numbers differently than shown.
+- If a figure is not in the data, do NOT mention it. Do NOT guess.
+- The data includes BOTH "YTD" (year-to-date) and "Week" (this week only) figures for every offense. Use the correct one for your claim. Do NOT confuse weekly totals with YTD totals.
+- Write exactly 2 sentences. The first captures the single most newsworthy pattern. The second adds essential context or a striking contrast.
+- Cite specific numbers from the data. No bullet points, no headers, no hedging.`,
+            messages: [{ role: 'user', content: `Here is the latest NYPD CompStat data. Write a 2-sentence summary using ONLY these exact figures:\n\n${ctx}` }]
           })
         });
         if (res.ok) {
