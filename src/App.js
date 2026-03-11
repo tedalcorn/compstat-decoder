@@ -752,10 +752,10 @@ ${driver ? `PRIMARY DRIVER OF CHANGE: ${driver.name} accounts for ${driver.share
 ${localAnomaly ? `LOCAL ANOMALY: ${localAnomaly.name} rate (${localAnomaly.localRate.toFixed(1)}/100k) is ${localAnomaly.ratio.toFixed(1)}x the citywide average` : ''}
 ${localBrightSpot ? `LOCAL BRIGHT SPOT: ${localBrightSpot.name} rate (${localBrightSpot.localRate.toFixed(1)}/100k) is ${((1 - localBrightSpot.ratio) * 100).toFixed(0)}% below citywide average` : ''}${precinctTable}
 
-=== HISTORICAL DATASETS (1993-2025, annual complaint totals) ===
-CITYWIDE ANNUAL TOTALS (all crimes): ${JSON.stringify(crimeHistory.citywide)}
-${activeGeo !== 'citywide' && crimeHistory.precincts[activeGeo] ? `SELECTED PRECINCT HISTORY (${activeGeo}): ${JSON.stringify(crimeHistory.precincts[activeGeo])}` : ''}
-LEGACY PRECINCT SCATTER (poverty vs crime correlations): ${JSON.stringify(PC)}
+=== HISTORICAL DATASETS FOR CONTEXT (1993-2025) ===
+If the user asks about historical context, refer to these reference arrays:
+CITYWIDE: ${JSON.stringify(CW)}
+PRECINCT: ${JSON.stringify(PC)}
 `;
   };
 
