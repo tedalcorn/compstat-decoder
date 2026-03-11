@@ -689,6 +689,7 @@ const LOCAL_QUESTIONS = [
 
 const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData, priorYear: priorYearProp }) => {
   const priorYear = priorYearProp || new Date().getFullYear() - 1;
+  const currentYear = priorYear + 1;
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -702,74 +703,135 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData, priorYear
     setHistory([]);
   }, [activeGeo, activeTab]);
 
+  // Extract numbers for BOTH YTD and weekly views from raw stats
+  const extractBoth = (stats) => {
+    const ytdCur = safeNum(stats?.year_to_date?.current_year);
+    const ytdPri = safeNum(stats?.year_to_date?.prior_year);
+    const ytdPct = stats?.year_to_date?.pct_change;
+    const wtdCur = safeNum(stats?.week_to_date?.current_year);
+    const wtdPri = safeNum(stats?.week_to_date?.prior_year);
+    const wtdPct = stats?.week_to_date?.pct_change;
+    return { ytdCur, ytdPri, ytdPct, wtdCur, wtdPri, wtdPct };
+  };
+
   const buildContext = () => {
-    const { totals, all, driver, localAnomaly, localBrightSpot } = parsedData;
+    const geoData = rawData?.[activeGeo] || rawData?.['citywide'] || {};
     const periodStr = `${period?.week_start || ''} – ${period?.week_end || ''}`;
-    const timeLabel = activeTab === 'ytd' ? 'year-to-date' : 'week-to-date';
     const geoLabel = activeGeo === 'citywide' ? 'Citywide (all of NYC)' : formatGeoName(activeGeo);
+    const pop = activeGeo === 'citywide' ? CITYWIDE_POPULATION : (GEO_POPULATIONS[activeGeo] || null);
 
-    const offenseLines = all.map(o =>
-      `  ${o.name}: ${o.current.toLocaleString()} incidents (${formatPct(o.pct)} vs ${priorYear}${o.currentRate !== null ? `, ${o.currentRate.toFixed(1)}/100k residents` : ''})`
-    ).join('\n');
+    // Build offense lines with BOTH YTD and weekly data
+    const felonies = geoData.seven_major_felonies || {};
+    const addl = geoData.additional_stats || {};
+    const allCrimes = { ...felonies, ...addl };
 
-    let precinctTable = '';
+    const offenseLines = Object.entries(allCrimes).map(([name, stats]) => {
+      const b = extractBoth(stats);
+      const rateSuffix = pop ? ` (${((b.ytdCur / pop) * 100000).toFixed(1)}/100k)` : '';
+      return `  ${name}: YTD ${b.ytdCur.toLocaleString()} vs ${b.ytdPri.toLocaleString()} (${formatPct(b.ytdPct)})${rateSuffix} | Week ${b.wtdCur.toLocaleString()} vs ${b.wtdPri.toLocaleString()} (${formatPct(b.wtdPct)})`;
+    }).join('\n');
+
+    // Compute summary totals for both views
+    const felonyEntries = Object.entries(felonies);
+    let ytdMCur = 0, ytdMPri = 0, wtdMCur = 0, wtdMPri = 0;
+    let ytdVCur = 0, ytdPCur = 0, ytdMurder = 0, wtdMurder = 0;
+    let ytdShootingVic = 0, wtdShootingVic = 0;
+    felonyEntries.forEach(([name, stats]) => {
+      const b = extractBoth(stats);
+      ytdMCur += b.ytdCur; ytdMPri += b.ytdPri;
+      wtdMCur += b.wtdCur; wtdMPri += b.wtdPri;
+      if (name === 'Murder') { ytdMurder = b.ytdCur; wtdMurder = b.wtdCur; }
+      if (VIOLENT_CRIMES.includes(name)) ytdVCur += b.ytdCur;
+      if (PROPERTY_CRIMES.includes(name)) ytdPCur += b.ytdCur;
+    });
+    Object.entries(addl).forEach(([name, stats]) => {
+      const b = extractBoth(stats);
+      if (name === 'Shooting Vic.') { ytdShootingVic = b.ytdCur; wtdShootingVic = b.wtdCur; }
+    });
+
+    // Primary driver (YTD)
+    const ytdDiff = ytdMCur - ytdMPri;
+    let driverLine = '';
+    if (ytdDiff !== 0) {
+      let driverName = '', driverDiff = 0;
+      felonyEntries.forEach(([name, stats]) => {
+        const b = extractBoth(stats);
+        const d = b.ytdCur - b.ytdPri;
+        if (Math.abs(d) > Math.abs(driverDiff) && Math.sign(d) === Math.sign(ytdDiff)) { driverName = name; driverDiff = d; }
+      });
+      if (driverName) driverLine = `PRIMARY DRIVER (YTD): ${driverName} accounts for ${Math.abs((driverDiff / ytdDiff) * 100).toFixed(0)}% of the overall shift (${driverDiff > 0 ? '+' : ''}${driverDiff.toLocaleString()} incidents, from ${(safeNum(felonies[driverName]?.year_to_date?.prior_year)).toLocaleString()} to ${(safeNum(felonies[driverName]?.year_to_date?.current_year)).toLocaleString()})`;
+    }
+
+    // Lethality gap
+    const lethalityLine = ytdMurder > 0 ? `LETHALITY GAP: For every 1 homicide, there were ${(ytdShootingVic / ytdMurder).toFixed(1)} shooting victims YTD (${ytdShootingVic} victims / ${ytdMurder} murders)` : '';
+
+    // Precinct-level top/bottom rankings (YTD, compact)
+    let precinctSummary = '';
     if (activeGeo === 'citywide' && rawData) {
       const pctKeys = Object.keys(rawData).filter(k => k.includes('Precinct'));
       if (pctKeys.length > 0) {
-        const lines = pctKeys.sort((a, b) => parseInt(a) - parseInt(b)).map(pct => {
+        const pctRates = pctKeys.map(pct => {
           const d = rawData[pct];
-          const pop = GEO_POPULATIONS[pct] || 0;
+          const p = GEO_POPULATIONS[pct] || 0;
           const hood = PRECINCT_NEIGHBORHOODS[pct] || '';
-          const felonies = d.seven_major_felonies || {};
-          const addl = d.additional_stats || {};
-          const crimes = { ...felonies, ...addl };
+          const f = d.seven_major_felonies || {};
           let total = 0;
-          const crimeNums = Object.entries(crimes).map(([name, stats]) => {
-            const c = safeNum(activeTab === 'ytd' ? stats?.year_to_date?.current_year : stats?.week_to_date?.current_year);
-            total += (felonies[name] ? c : 0);
-            return `${name}:${c}`;
-          });
-          const rate = pop > 0 ? ((total / pop) * 100000).toFixed(1) : '?';
-          return `  ${pct} (${hood}): ${crimeNums.join(', ')} | Total 7 major: ${total} | ${rate}/100k | Pop ~${formatPop(pop)}`;
-        });
-        precinctTable = `\n\nPRECINCT-LEVEL DATA (${timeLabel}):\n${lines.join('\n')}`;
+          Object.values(f).forEach(stats => { total += safeNum(stats?.year_to_date?.current_year); });
+          return { pct, hood, total, pop: p, rate: p > 0 ? (total / p) * 100000 : 0 };
+        }).filter(r => r.pop > 0 && !TOURIST_PRECINCTS.includes(r.pct)).sort((a, b) => b.rate - a.rate);
+
+        const top5 = pctRates.slice(0, 5).map(r => `  ${r.pct} (${r.hood}): ${r.rate.toFixed(0)}/100k (${r.total} incidents, pop ${formatPop(r.pop)})`).join('\n');
+        const bot5 = pctRates.slice(-5).reverse().map(r => `  ${r.pct} (${r.hood}): ${r.rate.toFixed(0)}/100k (${r.total} incidents, pop ${formatPop(r.pop)})`).join('\n');
+        precinctSummary = `\nTOP 5 HIGHEST-RATE PRECINCTS (YTD major index per 100k):\n${top5}\n\nTOP 5 LOWEST-RATE PRECINCTS:\n${bot5}`;
       }
     }
 
-    return `=== LIVE NYPD COMPSTAT DATA ===
+    // City comparison data
+    const cityCompLine = activeGeo === 'citywide' ? `\nCITY COMPARISON (12-month rolling totals per 100k, through ${RTCI_PERIOD}, source: Real-Time Crime Index by AH Datalytics):\n` +
+      RTCI_CITIES.map(c => `  ${c.city}: Murder ${rtciRate(c.murder, c.pop)}/100k, Violent ${rtciRate(c.violent, c.pop)}/100k, Property ${rtciRate(c.property, c.pop)}/100k`).join('\n') : '';
+
+    return `=== LIVE NYPD COMPSTAT DATA (Week of ${periodStr}) ===
 Geography: ${geoLabel}
-Timeframe: ${timeLabel} through ${periodStr}
+Current year: ${currentYear} | Prior year: ${priorYear}
 
-SUMMARY TOTALS:
-  Major index felonies: ${totals.mCur.toLocaleString()} (${formatPct(totals.mPct)} vs ${priorYear}'s ${totals.mPri.toLocaleString()})
-  Violent share: ${((totals.vCur / (totals.mCur || 1)) * 100).toFixed(0)}%
-  Property share: ${((totals.pCur / (totals.mCur || 1)) * 100).toFixed(0)}%
-  Murders: ${totals.murder}
+YEAR-TO-DATE TOTALS:
+  Major index felonies: ${ytdMCur.toLocaleString()} vs ${ytdMPri.toLocaleString()} (${formatPct(calcPct(ytdMCur, ytdMPri))})
+  Violent share: ${((ytdVCur / (ytdMCur || 1)) * 100).toFixed(0)}% | Property share: ${((ytdPCur / (ytdMCur || 1)) * 100).toFixed(0)}%
+  Murders: ${ytdMurder} | Shooting Victims: ${ytdShootingVic}
 
-ALL TRACKED OFFENSES:
+WEEKLY TOTALS (week of ${periodStr}):
+  Major index felonies: ${wtdMCur.toLocaleString()} vs ${wtdMPri.toLocaleString()} (${formatPct(calcPct(wtdMCur, wtdMPri))})
+  Murders: ${wtdMurder} | Shooting Victims: ${wtdShootingVic}
+
+ALL TRACKED OFFENSES (both YTD and weekly):
 ${offenseLines}
 
-${driver ? `PRIMARY DRIVER OF CHANGE: ${driver.name} accounts for ${driver.share.toFixed(0)}% of the overall shift` : ''}
-${localAnomaly ? `LOCAL ANOMALY: ${localAnomaly.name} rate (${localAnomaly.localRate.toFixed(1)}/100k) is ${localAnomaly.ratio.toFixed(1)}x the citywide average` : ''}
-${localBrightSpot ? `LOCAL BRIGHT SPOT: ${localBrightSpot.name} rate (${localBrightSpot.localRate.toFixed(1)}/100k) is ${((1 - localBrightSpot.ratio) * 100).toFixed(0)}% below citywide average` : ''}${precinctTable}
+${driverLine}
+${lethalityLine}${precinctSummary}${cityCompLine}
 
-=== HISTORICAL DATASETS FOR CONTEXT (1993-2025) ===
-If the user asks about historical context, refer to these reference arrays:
-CITYWIDE: ${JSON.stringify(CW)}
-PRECINCT: ${JSON.stringify(PC)}
+=== HISTORICAL DATASETS (1993-2025, full-year annual totals) ===
+CITYWIDE (key: y=year, BU=Burglary, FA=Fel.Assault, GA=G.L.A., GL=Gr.Larceny, MU=Murder, RA=Rape, RO=Robbery):
+${JSON.stringify(CW)}
 `;
   };
 
   const handleQuery = async (q) => {
     const questionText = q || query;
     if (!questionText.trim()) return;
-    
+
     setQuery('');
     setLoading(true);
     setError('');
 
     const dataContext = buildContext();
-    const systemPrompt = `You are a concise, plain-language crime data analyst for Vital City. You have access to BOTH current weekly/YTD CompStat data AND 30-year historical datasets (1993-2025). Answer directly and precisely — 2 to 4 sentences maximum. Cite specific numbers. When comparing precincts, use per-capita rates (per 100k residents). Never use bullet points or headers.`;
+    const systemPrompt = `You are a concise, plain-language crime data analyst for the NYPD CompStat Ledger by Vital City. You have access to the COMPLETE dataset shown on the dashboard, including both weekly and year-to-date figures, precinct rankings, city comparisons, and historical data from 1993-2025.
+
+CRITICAL RULES:
+- ONLY use numbers explicitly provided in the data context below. NEVER estimate, extrapolate, or generate plausible-sounding numbers.
+- If a specific figure is not in the provided data, say "That specific figure is not in the current dataset" rather than guessing.
+- When citing numbers, use the EXACT values from the data. Do not round differently or recalculate.
+- Both YTD and weekly data are provided for every offense. Use whichever the user asks about.
+- Answer in 2-4 sentences. Cite specific numbers. Never use bullet points or headers.`;
 
     const messages = [];
     history.forEach(h => {
@@ -778,9 +840,7 @@ PRECINCT: ${JSON.stringify(PC)}
     });
     messages.push({
       role: 'user',
-      content: messages.length === 0
-        ? `DATA:\n${dataContext}\n\nQUESTION: ${questionText}`
-        : questionText
+      content: `DATA:\n${dataContext}\n\nQUESTION: ${questionText}`
     });
 
     try {
