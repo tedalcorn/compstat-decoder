@@ -711,7 +711,13 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData, priorYear
     const wtdCur = safeNum(stats?.week_to_date?.current_year);
     const wtdPri = safeNum(stats?.week_to_date?.prior_year);
     const wtdPct = stats?.week_to_date?.pct_change;
-    return { ytdCur, ytdPri, ytdPct, wtdCur, wtdPri, wtdPct };
+    const d28Cur = safeNum(stats?.twenty_eight_day?.current_year);
+    const d28Pri = safeNum(stats?.twenty_eight_day?.prior_year);
+    const d28Pct = stats?.twenty_eight_day?.pct_change;
+    const hist2 = stats?.historical?.['2_yr_pct'];
+    const hist14 = stats?.historical?.['14_yr_pct'];
+    const hist31 = stats?.historical?.['31_yr_pct'];
+    return { ytdCur, ytdPri, ytdPct, wtdCur, wtdPri, wtdPct, d28Cur, d28Pri, d28Pct, hist2, hist14, hist31 };
   };
 
   const buildContext = () => {
@@ -728,7 +734,12 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData, priorYear
     const offenseLines = Object.entries(allCrimes).map(([name, stats]) => {
       const b = extractBoth(stats);
       const rateSuffix = pop ? ` (${((b.ytdCur / pop) * 100000).toFixed(1)}/100k)` : '';
-      return `  ${name}: YTD ${b.ytdCur.toLocaleString()} vs ${b.ytdPri.toLocaleString()} (${formatPct(b.ytdPct)})${rateSuffix} | Week ${b.wtdCur.toLocaleString()} vs ${b.wtdPri.toLocaleString()} (${formatPct(b.wtdPct)})`;
+      const histParts = [];
+      if (b.hist2 != null) histParts.push(`2yr: ${formatPct(b.hist2)}`);
+      if (b.hist14 != null) histParts.push(`14yr: ${formatPct(b.hist14)}`);
+      if (b.hist31 != null) histParts.push(`31yr: ${formatPct(b.hist31)}`);
+      const histSuffix = histParts.length > 0 ? ` | Long-term: ${histParts.join(', ')}` : '';
+      return `  ${name}: YTD ${b.ytdCur.toLocaleString()} vs ${b.ytdPri.toLocaleString()} (${formatPct(b.ytdPct)})${rateSuffix} | Week ${b.wtdCur.toLocaleString()} vs ${b.wtdPri.toLocaleString()} (${formatPct(b.wtdPct)}) | 28-day ${b.d28Cur.toLocaleString()} vs ${b.d28Pri.toLocaleString()} (${formatPct(b.d28Pct)})${histSuffix}`;
     }).join('\n');
 
     // Compute summary totals for both views
@@ -934,8 +945,8 @@ All totals, percentages, shares, rates, and rankings are pre-computed in the DAT
 RULE 3 — SEARCH ALL OFFENSES:
 This dashboard tracks 18+ offense categories, NOT just the 7 major index felonies. For ANY question about "which crime," "most," "least," "biggest," "highest," "largest increase," or any superlative — you MUST check the "ALL TRACKED OFFENSES" section AND the "LARGEST YTD % INCREASES/DECREASES" and "HIGHEST-VOLUME OFFENSES" sections. Petit Larceny, Retail Theft, Hate Crimes, Transit, Shooting Victims, Traffic Fatalities, and other non-index offenses are all tracked. Never limit your answer to only the 7 major index felonies unless the user specifically asks about "major index felonies."
 
-RULE 4 — HISTORICAL DATA IS FULL-YEAR ONLY:
-The HISTORICAL DATASETS section contains full-year annual totals (not YTD). If comparing a current YTD figure to a historical year, you MUST state: "Note: the historical figure is a full-year total while the current figure is year-to-date." You only have YTD data for the current and prior year.
+RULE 4 — HISTORICAL & LONG-TERM DATA:
+Each offense line includes "Long-term" % changes: 2yr (vs 2 years ago), 14yr (vs 14 years ago), and 31yr (vs 31 years ago). Use these for questions about multi-year trends. The HISTORICAL DATASETS section at the bottom contains full-year annual totals (not YTD) for 1993-2025. If comparing a current YTD figure to a historical full-year figure, you MUST state: "Note: the historical figure is a full-year total while the current figure is year-to-date." You only have YTD data for the current and prior year.
 
 RULE 5 — PRECINCT DATA:
 Precinct-level overall crime rates (per 100k) are provided for all precincts. Precinct-level OFFENSE BREAKDOWNS (e.g., "how many robberies in the 40th Precinct") are NOT available — only overall rates. The SIGNIFICANT LOCAL SHIFTS section shows the biggest precinct-level offense spikes and drops. The GEOGRAPHIC INEQUALITY section shows concentration data. Use these when relevant.
