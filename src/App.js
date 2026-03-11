@@ -771,7 +771,7 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData, priorYear
       return `  ${o.name}: ${o.cur.toLocaleString()} vs ${o.pri.toLocaleString()} (${chg})`;
     }).join('\n');
 
-    // Primary driver (YTD)
+    // Primary driver (YTD) — among 7 major index felonies only
     const ytdDiff = ytdMCur - ytdMPri;
     let driverLine = '';
     if (ytdDiff !== 0) {
@@ -781,11 +781,35 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData, priorYear
         const d = b.ytdCur - b.ytdPri;
         if (Math.abs(d) > Math.abs(driverDiff) && Math.sign(d) === Math.sign(ytdDiff)) { driverName = name; driverDiff = d; }
       });
-      if (driverName) driverLine = `PRIMARY DRIVER (YTD): ${driverName} accounts for ${Math.abs((driverDiff / ytdDiff) * 100).toFixed(0)}% of the overall shift (${driverDiff > 0 ? '+' : ''}${driverDiff.toLocaleString()} incidents, from ${(safeNum(felonies[driverName]?.year_to_date?.prior_year)).toLocaleString()} to ${(safeNum(felonies[driverName]?.year_to_date?.current_year)).toLocaleString()})`;
+      if (driverName) driverLine = `PRIMARY DRIVER OF INDEX CRIME CHANGE (YTD, among 7 major index felonies): ${driverName} accounts for ${Math.abs((driverDiff / ytdDiff) * 100).toFixed(0)}% of the overall index shift (${driverDiff > 0 ? '+' : ''}${driverDiff.toLocaleString()} incidents, from ${(safeNum(felonies[driverName]?.year_to_date?.prior_year)).toLocaleString()} to ${(safeNum(felonies[driverName]?.year_to_date?.current_year)).toLocaleString()})`;
     }
 
     // Lethality gap
     const lethalityLine = ytdMurder > 0 ? `LETHALITY GAP: For every 1 homicide, there were ${(ytdShootingVic / ytdMurder).toFixed(1)} shooting victims YTD (${ytdShootingVic} victims / ${ytdMurder} murders)` : '';
+
+    // Pre-compute superlatives across ALL tracked offenses (not just 7 major)
+    const allCrimeEntries = Object.entries(allCrimes);
+    const allYtdChanges = allCrimeEntries.map(([name, stats]) => {
+      const b = extractBoth(stats);
+      const pctChg = b.ytdPri > 0 ? ((b.ytdCur - b.ytdPri) / b.ytdPri) * 100 : null;
+      return { name, ytdCur: b.ytdCur, ytdPri: b.ytdPri, diff: b.ytdCur - b.ytdPri, pctChg };
+    }).filter(o => o.pctChg !== null && o.ytdPri >= 10); // only count offenses with meaningful prior-year volume
+    const sortedByPctUp = [...allYtdChanges].sort((a, b) => (b.pctChg || 0) - (a.pctChg || 0));
+    const sortedByPctDown = [...allYtdChanges].sort((a, b) => (a.pctChg || 0) - (b.pctChg || 0));
+    const sortedByRawDown = [...allYtdChanges].sort((a, b) => a.diff - b.diff);
+    const sortedByRawUp = [...allYtdChanges].sort((a, b) => b.diff - a.diff);
+    const superlativeLines = [
+      `LARGEST YTD % INCREASES (across ALL tracked offenses):`,
+      ...sortedByPctUp.filter(o => o.pctChg > 0).slice(0, 5).map(o => `  ${o.name}: +${o.pctChg.toFixed(1)}% (${o.ytdCur.toLocaleString()} vs ${o.ytdPri.toLocaleString()})`),
+      `LARGEST YTD % DECREASES (across ALL tracked offenses):`,
+      ...sortedByPctDown.filter(o => o.pctChg < 0).slice(0, 5).map(o => `  ${o.name}: ${o.pctChg.toFixed(1)}% (${o.ytdCur.toLocaleString()} vs ${o.ytdPri.toLocaleString()})`),
+      `LARGEST YTD RAW DECREASES (across ALL tracked offenses):`,
+      ...sortedByRawDown.filter(o => o.diff < 0).slice(0, 5).map(o => `  ${o.name}: ${o.diff.toLocaleString()} fewer (${o.ytdCur.toLocaleString()} vs ${o.ytdPri.toLocaleString()})`),
+      `LARGEST YTD RAW INCREASES (across ALL tracked offenses):`,
+      ...sortedByRawUp.filter(o => o.diff > 0).slice(0, 5).map(o => `  ${o.name}: +${o.diff.toLocaleString()} more (${o.ytdCur.toLocaleString()} vs ${o.ytdPri.toLocaleString()})`),
+      `HIGHEST-VOLUME OFFENSES YTD (across ALL tracked offenses):`,
+      ...allYtdChanges.sort((a, b) => b.ytdCur - a.ytdCur).slice(0, 10).map(o => `  ${o.name}: ${o.ytdCur.toLocaleString()} incidents`),
+    ].join('\n');
 
     // Precinct-level top/bottom rankings (YTD, compact)
     let precinctSummary = '';
@@ -806,7 +830,45 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData, priorYear
         const top5 = pctRates.slice(0, 5).map(r => `  ${r.pct} (${r.hood}): ${r.rate.toFixed(0)}/100k (${r.total} incidents, pop ${formatPop(r.pop)})`).join('\n');
         const bot5 = pctRates.slice(-5).reverse().map(r => `  ${r.pct} (${r.hood}): ${r.rate.toFixed(0)}/100k (${r.total} incidents, pop ${formatPop(r.pop)})`).join('\n');
         const allPctLines = pctRates.map((r, i) => `  #${i + 1} ${r.pct} (${r.hood}): ${r.rate.toFixed(0)}/100k`).join('\n');
-        precinctSummary = `\nPRECINCT CRIME RATES (YTD major index per 100k, ranked highest to lowest, citywide avg: ${avgRate.toFixed(0)}/100k):\n${allPctLines}\n\nTOP 5 HIGHEST-RATE (detail):\n${top5}\n\nTOP 5 LOWEST-RATE (detail):\n${bot5}`;
+
+        // Top 5 vs bottom N inequality stat
+        const sortedV = [];
+        pctKeys.forEach(pct => {
+          const d = rawData[pct]; let vSum = 0;
+          Object.entries(d.seven_major_felonies || {}).forEach(([crime, stats]) => {
+            if (VIOLENT_CRIMES.includes(crime)) vSum += safeNum(stats?.year_to_date?.current_year);
+          });
+          if (vSum > 0) sortedV.push({ precinct: pct, violent: vSum });
+        });
+        sortedV.sort((a, b) => b.violent - a.violent);
+        let inequalityLine = '';
+        if (sortedV.length > 10) {
+          const t5 = sortedV.slice(0, 5);
+          const t5Sum = t5.reduce((s, p) => s + p.violent, 0);
+          const t5Pop = t5.reduce((s, p) => s + (GEO_POPULATIONS[p.precinct] || 0), 0);
+          let bSum = 0, bCount = 0, bPop = 0;
+          for (let i = sortedV.length - 1; i >= 0 && bSum < t5Sum; i--) { bSum += sortedV[i].violent; bCount++; bPop += (GEO_POPULATIONS[sortedV[i].precinct] || 0); }
+          inequalityLine = `\nGEOGRAPHIC INEQUALITY: The 5 highest-violent-crime precincts (${formatPop(t5Pop)} residents, violent crime total: ${t5Sum.toLocaleString()}) produce as much violent crime as the ${bCount} safest precincts combined (${formatPop(bPop)} residents).`;
+        }
+
+        // Significant local shifts — precinct-level offense spikes/drops
+        const VOLATILITY_MIN = 10; // minimum prior-year count to avoid noisy small-N swings
+        let allPctCrimes = [];
+        pctKeys.forEach(pct => {
+          Object.entries(rawData[pct].seven_major_felonies || {}).forEach(([crime, stats]) => {
+            const c = safeNum(stats?.year_to_date?.current_year);
+            const p = safeNum(stats?.year_to_date?.prior_year);
+            if (p >= VOLATILITY_MIN) allPctCrimes.push({ precinct: pct, crime, cur: c, pri: p, pctChg: ((c - p) / p) * 100 });
+          });
+        });
+        allPctCrimes.sort((a, b) => b.pctChg - a.pctChg);
+        const topSpike = allPctCrimes[0];
+        const topDrop = allPctCrimes[allPctCrimes.length - 1];
+        let localShiftsLine = '\nSIGNIFICANT LOCAL SHIFTS (biggest precinct-level YTD changes):';
+        if (topSpike) localShiftsLine += `\n  Biggest spike: ${topSpike.crime} in ${topSpike.precinct} (${PRECINCT_NEIGHBORHOODS[topSpike.precinct] || ''}): ${topSpike.cur} vs ${topSpike.pri} (+${topSpike.pctChg.toFixed(1)}%)`;
+        if (topDrop) localShiftsLine += `\n  Biggest drop: ${topDrop.crime} in ${topDrop.precinct} (${PRECINCT_NEIGHBORHOODS[topDrop.precinct] || ''}): ${topDrop.cur} vs ${topDrop.pri} (${topDrop.pctChg.toFixed(1)}%)`;
+
+        precinctSummary = `\nPRECINCT CRIME RATES (YTD major index per 100k, ranked highest to lowest, citywide avg: ${avgRate.toFixed(0)}/100k):\n${allPctLines}\n\nTOP 5 HIGHEST-RATE (detail):\n${top5}\n\nTOP 5 LOWEST-RATE (detail):\n${bot5}${inequalityLine}${localShiftsLine}`;
       }
     }
 
@@ -817,6 +879,7 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData, priorYear
     return `=== LIVE NYPD COMPSTAT DATA (Week of ${periodStr}) ===
 Geography: ${geoLabel}
 Current year: ${currentYear} | Prior year: ${priorYear}
+NOTE: This dashboard tracks 18+ offense categories. The "7 major index felonies" are Murder, Rape, Robbery, Fel. Assault, Burglary, Gr. Larceny, and G.L.A. Additional tracked offenses include Petit Larceny, Retail Theft, Shooting Incidents, Shooting Victims, Misd. Assault, Misd. Sex Crimes, Hate Crimes, Transit, UCR Rape, Traffic Fatalities, and more. When answering "which crime" or "most/least" questions, consider ALL tracked offenses below, not just the 7 major index felonies.
 
 YEAR-TO-DATE SUMMARY:
   Total major index felonies: ${ytdMCur.toLocaleString()} (${currentYear}) vs ${ytdMPri.toLocaleString()} (${priorYear}) = ${ytdTotalPct} change
@@ -830,20 +893,23 @@ WEEKLY SUMMARY (week of ${periodStr}):
   Violent crime: ${wtdVCur.toLocaleString()} | Property crime: ${wtdPCur.toLocaleString()}
   Murders: ${wtdMurder} | Shooting Victims: ${wtdShootingVic}
 
-YTD SHARE OF TOTAL BY OFFENSE (pre-computed — use these directly):
+YTD SHARE OF TOTAL BY OFFENSE (among 7 major index felonies — pre-computed, use directly):
 ${perOffenseYtdLines}
 
-WEEKLY CHANGE BY OFFENSE (pre-computed — use these directly):
+WEEKLY CHANGE BY OFFENSE (among 7 major index felonies — pre-computed, use directly):
 ${perOffenseWtdLines}
 
-ALL TRACKED OFFENSES (both YTD and weekly, including non-index):
+ALL TRACKED OFFENSES (both YTD and weekly, including non-index — THIS IS THE COMPLETE LIST):
 ${offenseLines}
+
+${superlativeLines}
 
 ${driverLine}
 ${lethalityLine}${precinctSummary}${cityCompLine}
 
-=== HISTORICAL DATASETS (1993-2025, full-year annual totals) ===
-CITYWIDE (key: y=year, BU=Burglary, FA=Fel.Assault, GA=G.L.A., GL=Gr.Larceny, MU=Murder, RA=Rape, RO=Robbery):
+=== HISTORICAL DATASETS ===
+WARNING: Historical data contains FULL-YEAR ANNUAL TOTALS ONLY (not YTD). You CANNOT compare a current YTD figure to a historical full-year figure without clearly stating "Note: the historical figure is a full-year total while the current figure is year-to-date through ${period?.week_end || 'this week'}." If asked about YTD figures for any year other than ${currentYear} and ${priorYear}, say "I only have YTD data for ${currentYear} and ${priorYear}. For other years, I have full-year annual totals."
+CITYWIDE ANNUAL TOTALS 1993-2025 (key: y=year, BU=Burglary, FA=Fel.Assault, GA=G.L.A., GL=Gr.Larceny, MU=Murder, RA=Rape, RO=Robbery):
 ${JSON.stringify(CW)}
 `;
   };
@@ -857,26 +923,27 @@ ${JSON.stringify(CW)}
     setError('');
 
     const dataContext = buildContext();
-    const systemPrompt = `You are a concise, plain-language crime data analyst for the NYPD CompStat Ledger by Vital City.
+    const systemPrompt = `You are a concise, plain-language crime data analyst for the NYPD CompStat Ledger by Vital City. You answer questions ONLY using the DATA section provided with each message. You have no other source of information.
 
-ABSOLUTE RULE #1 — NEVER FABRICATE:
-You must ONLY cite numbers that appear verbatim in the DATA section below. If a number is not there, say "That specific figure isn't in the current dataset." NEVER estimate. NEVER say "approximately." NEVER invent a number. NEVER extrapolate. NEVER use your training data for NYC crime statistics — the DATA section is your ONLY source of truth. Fabricating crime statistics is dangerous misinformation.
+RULE 1 — NEVER MAKE ANYTHING UP:
+Every number you cite must appear verbatim in the DATA section. If it's not there, say "I don't have that figure in the current dataset." Do not estimate, approximate, extrapolate, or invent. Do not use your training data for ANY NYC crime statistic. A wrong crime number is dangerous misinformation — "I don't know" is always the right answer when the data isn't there.
 
-ABSOLUTE RULE #2 — NEVER DO ARITHMETIC:
-Do NOT add, subtract, multiply, or divide numbers yourself. All totals, percentages, shares, and rates are pre-computed in the DATA section. Use them exactly as given. If a pre-computed answer isn't provided, say so — do NOT attempt to calculate it.
+RULE 2 — DO NOT DO MATH:
+All totals, percentages, shares, rates, and rankings are pre-computed in the DATA. Use them exactly as given. Do not add, subtract, multiply, or divide numbers yourself. If a derived figure isn't pre-computed, say "That calculation isn't in the current dataset" — do not attempt it.
 
-ABSOLUTE RULE #3 — SAY "I DON'T KNOW":
-If you cannot find the answer in the DATA section, say "I don't have that in the current dataset" or "That isn't tracked here." NEVER fill the gap with a plausible-sounding answer. A wrong answer about crime data is far worse than "I don't know."
+RULE 3 — SEARCH ALL OFFENSES:
+This dashboard tracks 18+ offense categories, NOT just the 7 major index felonies. For ANY question about "which crime," "most," "least," "biggest," "highest," "largest increase," or any superlative — you MUST check the "ALL TRACKED OFFENSES" section AND the "LARGEST YTD % INCREASES/DECREASES" and "HIGHEST-VOLUME OFFENSES" sections. Petit Larceny, Retail Theft, Hate Crimes, Transit, Shooting Victims, Traffic Fatalities, and other non-index offenses are all tracked. Never limit your answer to only the 7 major index felonies unless the user specifically asks about "major index felonies."
 
-LOOKUP RULES:
-- Both YTD and weekly data are provided for every offense. Use whichever the user asks about; default to YTD if unspecified.
-- The "ALL TRACKED OFFENSES" section contains 18+ categories including retail theft, hate crimes, transit crimes, shooting incidents/victims, traffic fatalities, and more. Search it before saying data doesn't exist.
-- Precinct-level per-100k rates are provided for ALL precincts, ranked from highest to lowest, with a citywide average. Use these for any precinct question.
-- City comparison data (NYC vs other cities) is in the CITY COMPARISON section.
-- Historical annual data from 1993-2025 is in the HISTORICAL DATASETS section.
-- For "share of total" questions, use the YTD SHARE OF TOTAL section.
+RULE 4 — HISTORICAL DATA IS FULL-YEAR ONLY:
+The HISTORICAL DATASETS section contains full-year annual totals (not YTD). If comparing a current YTD figure to a historical year, you MUST state: "Note: the historical figure is a full-year total while the current figure is year-to-date." You only have YTD data for the current and prior year.
 
-FORMAT: Answer in 2-4 sentences. Cite exact numbers from the data. Never use bullet points or headers.`;
+RULE 5 — PRECINCT DATA:
+Precinct-level overall crime rates (per 100k) are provided for all precincts. Precinct-level OFFENSE BREAKDOWNS (e.g., "how many robberies in the 40th Precinct") are NOT available — only overall rates. The SIGNIFICANT LOCAL SHIFTS section shows the biggest precinct-level offense spikes and drops. The GEOGRAPHIC INEQUALITY section shows concentration data. Use these when relevant.
+
+RULE 6 — WHEN IN DOUBT, SAY YOU DON'T KNOW:
+If you are not 100% certain the answer is in the DATA, say so. Never guess. Never hedge with "approximately" or "around." Either cite the exact figure from the data or say you don't have it.
+
+FORMAT: Answer in 2-4 sentences. Cite exact numbers from the data. No bullet points or headers.`;
 
     const messages = [];
     history.forEach(h => {
