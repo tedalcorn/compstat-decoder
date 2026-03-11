@@ -43,7 +43,7 @@ const CW = [
 const MA_CW = {2000:57304,2001:57753,2002:52469,2003:51298,2004:52158,2005:52408,2006:52169,2007:51429,2008:50310,2009:50216,2010:52716,2011:50972,2012:54495,2013:53738,2014:53847,2015:42654,2016:42422,2017:41665,2018:43126,2019:42529,2020:33400,2021:36553,2022:41161,2023:44151,2024:47738};
 
 // Multiplied by 10 to shift from /10k to /100k
-const BP = [
+const BP = [ // eslint-disable-line no-unused-vars
   {y:1993,Bx:5385,Bk:5413,Mn:7688,Qn:5168,SI:3160},
   {y:1997,Bx:3010,Bk:2877,Mn:4193,Qn:2799,SI:1670},
   {y:2001,Bx:2019,Bk:2014,Mn:2837,Qn:1702,SI:907},
@@ -139,12 +139,12 @@ const PC = [
 const K7 = ['BU','FA','GA','GL','MU','RA','RO'];
 const CC = {BU:'#394882',FA:'#e7466d',GA:'#9b9fbc',GL:'#ff7c53',MU:'#050507',RA:'#cea9be',RO:'#217ebe'};
 const CL = {BU:'Burglary',FA:'Fel. Assault',GA:'Grand Larceny Auto',GL:'Grand Larceny',MU:'Murder',RA:'Rape',RO:'Robbery'};
-const BC = {Bx:'#e7466d',Bk:'#394882',Mn:'#ff7c53',Qn:'#707175',SI:'#9b9fbc'};
-const BL = {Bx:'Bronx',Bk:'Brooklyn',Mn:'Manhattan',Qn:'Queens',SI:'Staten Island'};
+const BC = {Bx:'#e7466d',Bk:'#394882',Mn:'#ff7c53',Qn:'#707175',SI:'#9b9fbc'}; // eslint-disable-line no-unused-vars
+const BL = {Bx:'Bronx',Bk:'Brooklyn',Mn:'Manhattan',Qn:'Queens',SI:'Staten Island'}; // eslint-disable-line no-unused-vars
 
 const GITHUB_USER = "joshgreenman1973";
 const REPO_NAME = "nypd-compstat-scraper";
-const CITYWIDE_POPULATION = 8336817;
+const CITYWIDE_POPULATION = 8804190; // 2020 Census
 const VOLATILITY_THRESHOLD = 30;
 
 const VC = {
@@ -173,26 +173,28 @@ const FALLBACK_DATA = {
   }
 };
 
+// 2020 Census populations via John Keefe's census-by-precincts crosswalk
+// (github.com/jkeefe/census-by-precincts). Patrol borough totals = sum of constituent precincts.
 const GEO_POPULATIONS = {
-  "1st Precinct": 75000, "5th Precinct": 55000, "6th Precinct": 60000, "7th Precinct": 50000, "9th Precinct": 75000,
-  "10th Precinct": 50000, "13th Precinct": 75000, "14th Precinct": 25000, "17th Precinct": 80000, "18th Precinct": 30000,
-  "19th Precinct": 210000, "20th Precinct": 105000, "22nd Precinct": 500,
-  "23rd Precinct": 75000, "24th Precinct": 105000, "25th Precinct": 50000, "26th Precinct": 50000, "28th Precinct": 50000,
-  "30th Precinct": 60000, "32nd Precinct": 75000, "33rd Precinct": 80000, "34th Precinct": 115000,
-  "40th Precinct": 95000, "41st Precinct": 55000, "42nd Precinct": 85000, "43rd Precinct": 175000, "44th Precinct": 145000,
-  "45th Precinct": 120000, "46th Precinct": 135000, "47th Precinct": 155000, "48th Precinct": 85000, "49th Precinct": 120000,
-  "50th Precinct": 105000, "52nd Precinct": 140000,
-  "60th Precinct": 100000, "61st Precinct": 155000, "62nd Precinct": 185000, "63rd Precinct": 100000, "66th Precinct": 195000,
-  "67th Precinct": 155000, "68th Precinct": 130000, "69th Precinct": 95000, "70th Precinct": 160000, "71st Precinct": 105000,
-  "72nd Precinct": 130000, "73rd Precinct": 85000, "75th Precinct": 190000, "76th Precinct": 50000, "77th Precinct": 95000,
-  "78th Precinct": 65000, "79th Precinct": 90000, "81st Precinct": 65000, "83rd Precinct": 115000, "84th Precinct": 50000,
-  "88th Precinct": 55000, "90th Precinct": 130680, "94th Precinct": 71556,
-  "100th Precinct": 55913, "101st Precinct": 78328,
-  "102nd Precinct": 145000, "103rd Precinct": 110000, "104th Precinct": 175000, "105th Precinct": 190000, "106th Precinct": 125000,
-  "107th Precinct": 150000, "108th Precinct": 120000, "109th Precinct": 250000, "110th Precinct": 170000, "111th Precinct": 115000,
-  "112th Precinct": 110000, "113th Precinct": 115000, "114th Precinct": 195000, "115th Precinct": 175000,
-  "120th Precinct": 115000, "121st Precinct": 125000, "122nd Precinct": 145000, "123rd Precinct": 100000,
-  "Bronx": 1472654, "Brooklyn South": 1368037, "Brooklyn North": 1368037, "Manhattan South": 594251, "Manhattan North": 1100000, "Queens South": 1202732, "Queens North": 1202732, "Staten Island": 495747
+  "1st Precinct": 84799, "5th Precinct": 50598, "6th Precinct": 64643, "7th Precinct": 57985, "9th Precinct": 75951,
+  "10th Precinct": 65570, "13th Precinct": 100050, "14th Precinct": 28050, "17th Precinct": 89367, "18th Precinct": 67528,
+  "19th Precinct": 220261, "20th Precinct": 114575, "22nd Precinct": 129,
+  "23rd Precinct": 74769, "24th Precinct": 107489, "25th Precinct": 50996, "26th Precinct": 50002, "28th Precinct": 49200,
+  "30th Precinct": 60456, "32nd Precinct": 81240, "33rd Precinct": 71598, "34th Precinct": 108608,
+  "40th Precinct": 100929, "41st Precinct": 54454, "42nd Precinct": 93755, "43rd Precinct": 188015, "44th Precinct": 150436,
+  "45th Precinct": 130799, "46th Precinct": 132584, "47th Precinct": 163539, "48th Precinct": 89216, "49th Precinct": 119881,
+  "50th Precinct": 106976, "52nd Precinct": 146888,
+  "60th Precinct": 109024, "61st Precinct": 169513, "62nd Precinct": 198870, "63rd Precinct": 112652, "66th Precinct": 205377,
+  "67th Precinct": 162446, "68th Precinct": 136071, "69th Precinct": 90763, "70th Precinct": 164568, "71st Precinct": 102000,
+  "72nd Precinct": 133230, "73rd Precinct": 98506, "75th Precinct": 200994, "76th Precinct": 47789, "77th Precinct": 101267,
+  "78th Precinct": 73203, "79th Precinct": 106039, "81st Precinct": 68921, "83rd Precinct": 120747, "84th Precinct": 65597,
+  "88th Precinct": 64372, "90th Precinct": 131377, "94th Precinct": 72748,
+  "100th Precinct": 50809, "101st Precinct": 73376,
+  "102nd Precinct": 153297, "103rd Precinct": 121059, "104th Precinct": 178948, "105th Precinct": 199218, "106th Precinct": 129391,
+  "107th Precinct": 161402, "108th Precinct": 137962, "109th Precinct": 269581, "110th Precinct": 181051, "111th Precinct": 122211,
+  "112th Precinct": 119739, "113th Precinct": 135221, "114th Precinct": 208525, "115th Precinct": 179134,
+  "120th Precinct": 122308, "121st Precinct": 128149, "122nd Precinct": 144552, "123rd Precinct": 100738,
+  "Bronx": 1477472, "Brooklyn South": 1705506, "Brooklyn North": 1030568, "Manhattan South": 684541, "Manhattan North": 989323, "Queens South": 1023773, "Queens North": 1397151, "Staten Island": 495747
 };
 
 const PRECINCT_NEIGHBORHOODS = {
@@ -704,6 +706,14 @@ export default function App() {
       if (d && d.name) driverObj = { name: d.name, diff: d.diff, share: Math.abs((d.diff / mDiff) * 100) };
     }
 
+    let topSurge = null, topDrop = null;
+    felonies.forEach(f => {
+      if (f.prior >= VOLATILITY_THRESHOLD) {
+        if (f.pct > 0 && (!topSurge || f.pct > topSurge.pct)) topSurge = f;
+        if (f.pct < 0 && (!topDrop || f.pct < topDrop.pct)) topDrop = f;
+      }
+    });
+
     let localAnomaly = null, localBrightSpot = null;
     if (activeGeo !== 'citywide' && pop && citywideData) {
       let maxRatio = 0, minRatio = Infinity;
@@ -723,7 +733,7 @@ export default function App() {
     
     return { 
       period: geoData.report_period || {}, 
-      felonies, minors, all, driver: driverObj, citywideRates, localAnomaly, localBrightSpot, 
+      felonies, minors, all, driver: driverObj, citywideRates, localAnomaly, localBrightSpot, topSurge, topDrop,
       totals: { 
         mCur, mPri, pCur, vCur, 
         mPct: calcPct(mCur, mPri) ?? 0, 
