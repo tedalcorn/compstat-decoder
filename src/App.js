@@ -1,5 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, ScatterChart, Scatter } from 'recharts';
+import { geoPath, geoMercator } from 'd3-geo';
+import precinctGeoJSON from './data/nyc_precincts.json';
+import crimeHistory from './data/crime_history.json';
 
 /* ------------------------------------------------------------------ */
 /* 1. HISTORICAL DATASETS & CONFIG                                    */
@@ -155,6 +158,7 @@ const VC = {
 
 const VIOLENT_CRIMES = ["Murder", "Rape", "Robbery", "Fel. Assault", "Misd. Assault", "Shooting Inc.", "Shooting Vic.", "Hate Crimes"];
 const PROPERTY_CRIMES = ["Burglary", "Gr. Larceny", "G.L.A.", "Petit Larceny", "Retail Theft"];
+const TOURIST_PRECINCTS = ["14th Precinct", "18th Precinct", "22nd Precinct"];
 
 const FALLBACK_DATA = {
   "citywide": {
@@ -195,6 +199,30 @@ const GEO_POPULATIONS = {
   "112th Precinct": 119739, "113th Precinct": 135221, "114th Precinct": 208525, "115th Precinct": 179134,
   "120th Precinct": 122308, "121st Precinct": 128149, "122nd Precinct": 144552, "123rd Precinct": 100738,
   "Bronx": 1477472, "Brooklyn South": 1705506, "Brooklyn North": 1030568, "Manhattan South": 684541, "Manhattan North": 989323, "Queens South": 1023773, "Queens North": 1397151, "Staten Island": 495747
+};
+
+// 2010 Census populations mapped to 2020 precinct boundaries (John Keefe's crosswalk).
+// Used for precinct-level rate calculations on data from 2010–2019.
+const GEO_POPULATIONS_2010 = { // eslint-disable-line no-unused-vars
+  "1st Precinct": 66679, "5th Precinct": 52568, "6th Precinct": 62226, "7th Precinct": 56355, "9th Precinct": 76443,
+  "10th Precinct": 50180, "13th Precinct": 93640, "14th Precinct": 20651, "17th Precinct": 79126, "18th Precinct": 54066,
+  "19th Precinct": 208259, "20th Precinct": 102624, "22nd Precinct": 25,
+  "23rd Precinct": 73106, "24th Precinct": 106460, "25th Precinct": 47405, "26th Precinct": 49508, "28th Precinct": 44781,
+  "30th Precinct": 60685, "32nd Precinct": 70942, "33rd Precinct": 76958, "34th Precinct": 113062,
+  "40th Precinct": 91497, "41st Precinct": 52246, "42nd Precinct": 79762, "43rd Precinct": 172122, "44th Precinct": 146441,
+  "45th Precinct": 120833, "46th Precinct": 128200, "47th Precinct": 152374, "48th Precinct": 83266, "49th Precinct": 114712,
+  "50th Precinct": 101720, "52nd Precinct": 139307,
+  "60th Precinct": 104278, "61st Precinct": 159645, "62nd Precinct": 181981, "63rd Precinct": 108646, "66th Precinct": 191382,
+  "67th Precinct": 155252, "68th Precinct": 124491, "69th Precinct": 84480, "70th Precinct": 160664, "71st Precinct": 98429,
+  "72nd Precinct": 126230, "73rd Precinct": 86468, "75th Precinct": 183328, "76th Precinct": 43694, "77th Precinct": 90744,
+  "78th Precinct": 66664, "79th Precinct": 90263, "81st Precinct": 62722, "83rd Precinct": 112634, "84th Precinct": 48196,
+  "88th Precinct": 51421, "90th Precinct": 116836, "94th Precinct": 56247,
+  "100th Precinct": 47913, "101st Precinct": 67065,
+  "102nd Precinct": 144215, "103rd Precinct": 105803, "104th Precinct": 170190, "105th Precinct": 188582, "106th Precinct": 122441,
+  "107th Precinct": 151107, "108th Precinct": 113200, "109th Precinct": 247354, "110th Precinct": 172634, "111th Precinct": 116431,
+  "112th Precinct": 112070, "113th Precinct": 120132, "114th Precinct": 202766, "115th Precinct": 171576,
+  "120th Precinct": 113008, "121st Precinct": 118708, "122nd Precinct": 138982, "123rd Precinct": 98032,
+  "Bronx": 1382480, "Brooklyn South": 2056639, "Brooklyn North": 448056, "Manhattan South": 611934, "Manhattan North": 953815, "Queens South": 796151, "Queens North": 1457328, "Staten Island": 468730
 };
 
 const PRECINCT_NEIGHBORHOODS = {
@@ -282,7 +310,6 @@ const Icon = ({ children, size = 16, className = "" }) => (
 const RefreshCw = (p) => <Icon {...p}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></Icon>;
 const TrendingUp = (p) => <Icon {...p}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></Icon>;
 const TrendingDown = (p) => <Icon {...p}><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></Icon>;
-const ChevronDown = (p) => <Icon {...p}><polyline points="6 9 12 15 18 9"/></Icon>;
 const Target = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></Icon>;
 const Activity = (p) => <Icon {...p}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></Icon>;
 const AlertCircle = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></Icon>;
@@ -297,7 +324,269 @@ const Sparkles = (p) => <Icon {...p}><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-
 const Send = (p) => <Icon {...p}><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></Icon>;
 const X = (p) => <Icon {...p}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>;
 const ArrowLeft = (p) => <Icon {...p}><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></Icon>;
-const Clock = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></Icon>;
+
+/* ------------------------------------------------------------------ */
+/* CITY COMPARISON — Real-Time Crime Index (AH Datalytics)             */
+/* 12-month rolling totals per 100k residents, through Dec 2025        */
+/* Source: realtimecrimeindex.com  •  final_sample.csv                 */
+/* ------------------------------------------------------------------ */
+const RTCI_CITIES = [
+  { city: 'New York',     pop: 8184044, murder: 305, violent: 47211, property: 74331, isNYC: true },
+  { city: 'Los Angeles',  pop: 3786018, murder: 225, violent: 25854, property: 86495 },
+  { city: 'Chicago',      pop: 2628298, murder: 424, violent: 21595, property: 72438 },
+  { city: 'Houston',      pop: 2304406, murder: 270, violent: 21219, property: 91409 },
+  { city: 'Philadelphia', pop: 1550843, murder: 221, violent: 12772, property: 67170 },
+];
+const RTCI_PERIOD = 'Dec 2025';
+const RTCI_UPDATED = '2026-02-17';
+const rtciRate = (count, pop) => +((count / pop) * 100000).toFixed(1);
+
+// Sequential color scale for choropleth: light neutral → orange → magenta
+const CHOROPLETH_STOPS = [
+  [0.0, [240, 240, 240]],
+  [0.25, [255, 213, 189]],
+  [0.5, [255, 124, 83]],
+  [0.75, [231, 70, 109]],
+  [1.0, [57, 72, 130]],
+];
+const crimeColor = (rate, min, max) => {
+  if (rate == null) return '#e5e5e5';
+  const t = Math.min(1, Math.max(0, (rate - min) / (max - min || 1)));
+  let lo = CHOROPLETH_STOPS[0], hi = CHOROPLETH_STOPS[CHOROPLETH_STOPS.length - 1];
+  for (let i = 0; i < CHOROPLETH_STOPS.length - 1; i++) {
+    if (t >= CHOROPLETH_STOPS[i][0] && t <= CHOROPLETH_STOPS[i + 1][0]) { lo = CHOROPLETH_STOPS[i]; hi = CHOROPLETH_STOPS[i + 1]; break; }
+  }
+  const s = (t - lo[0]) / (hi[0] - lo[0] || 1);
+  const r = Math.round(lo[1][0] + s * (hi[1][0] - lo[1][0]));
+  const g = Math.round(lo[1][1] + s * (hi[1][1] - lo[1][1]));
+  const b = Math.round(lo[1][2] + s * (hi[1][2] - lo[1][2]));
+  return `rgb(${r},${g},${b})`;
+};
+
+/* ------------------------------------------------------------------ */
+/* MINI SPARKLINE                                                      */
+/* ------------------------------------------------------------------ */
+const MiniSparkline = ({ points, width = 48, height = 16, minY }) => {
+  if (!points || points.length < 2) return null;
+  const min = minY !== undefined ? minY : Math.min(...points);
+  const max = Math.max(...points);
+  const range = max - min || 1;
+  const pad = 2;
+  const coords = points.map((v, i) => {
+    const x = pad + (i / (points.length - 1)) * (width - pad * 2);
+    const y = pad + (1 - (v - min) / range) * (height - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const trending = points[points.length - 1] > points[0];
+  return (
+    <svg width={width} height={height} className="inline-block align-middle">
+      <polyline points={coords} fill="none" stroke={trending ? VC.orange : VC.green} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={parseFloat(coords.split(' ').pop().split(',')[0])} cy={parseFloat(coords.split(' ').pop().split(',')[1])} r="2" fill={trending ? VC.orange : VC.green} />
+    </svg>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/* CITY COMPARISON WIDGET                                              */
+/* ------------------------------------------------------------------ */
+const CityComparisonWidget = () => {
+  const metrics = [
+    { key: 'murder', label: 'Murder', unit: 'per 100k' },
+    { key: 'violent', label: 'Violent Crime', unit: 'per 100k' },
+    { key: 'property', label: 'Property Crime', unit: 'per 100k' },
+  ];
+  const [activeMetric, setActiveMetric] = useState('murder');
+  const metric = metrics.find(m => m.key === activeMetric);
+  const ranked = RTCI_CITIES.map(c => ({ ...c, rate: rtciRate(c[activeMetric], c.pop) }))
+    .sort((a, b) => a.rate - b.rate);
+  const maxRate = ranked[ranked.length - 1].rate;
+
+  return (
+    <section className="mb-10 p-6 bg-gray-50 rounded-sm border border-gray-200">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+        <div>
+          <h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">How NYC Compares</h3>
+          <p className="text-[13px] font-serif text-gray-600 mt-0.5">12-month rolling {metric.label.toLowerCase()} rate {metric.unit}, five largest U.S. cities</p>
+        </div>
+        <div className="flex bg-white p-1 rounded border border-gray-200">
+          {metrics.map(m => (
+            <button key={m.key} onClick={() => setActiveMetric(m.key)}
+              className={`px-3 py-1 text-[10px] font-black uppercase tracking-wide ${activeMetric === m.key ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-2.5">
+        {ranked.map(c => {
+          const barW = maxRate > 0 ? (c.rate / maxRate) * 100 : 0;
+          const isNYC = c.isNYC;
+          return (
+            <div key={c.city} className="flex items-center gap-3">
+              <span className={`w-24 text-right text-[12px] ${isNYC ? 'font-black text-gray-900' : 'font-medium text-gray-500'}`}>
+                {c.city}
+              </span>
+              <div className="flex-1 h-5 bg-gray-200 rounded-sm overflow-hidden relative">
+                <div className={`h-full rounded-sm ${isNYC ? 'bg-gray-900' : 'bg-gray-400'}`}
+                  style={{ width: `${barW}%` }} />
+              </div>
+              <span className={`w-16 text-[12px] tabular-nums ${isNYC ? 'font-black text-gray-900' : 'font-medium text-gray-500'}`}>
+                {c.rate.toLocaleString()}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-4 pt-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
+        <p className="text-[10px] text-gray-400">
+          Data through {RTCI_PERIOD} · Updated {RTCI_UPDATED} · UCR Part I offenses · FBI population estimates
+        </p>
+        <a href="https://realtimecrimeindex.com/" target="_blank" rel="noopener noreferrer"
+          className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline whitespace-nowrap">
+          Source: Real-Time Crime Index by AH Datalytics ↗
+        </a>
+      </div>
+    </section>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/* PRECINCT CHOROPLETH MAP                                             */
+/* ------------------------------------------------------------------ */
+const PrecinctMap = ({ precinctRates, onSelect, activeGeo, width = 520, height = 520 }) => {
+  const [hovered, setHovered] = useState(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const svgRef = useRef(null);
+
+  const { pathFn, rateMap, minRate, maxRate } = useMemo(() => {
+    const projection = geoMercator().fitSize([width, height], precinctGeoJSON);
+    const pathFn = geoPath().projection(projection);
+    const rateMap = {};
+    let minR = Infinity, maxR = 0;
+    precinctRates.forEach(p => {
+      rateMap[p.precinctNum] = p;
+      if (p.rate != null && !p.isTourist) {
+        if (p.rate < minR) minR = p.rate;
+        if (p.rate > maxR) maxR = p.rate;
+      }
+    });
+    if (minR === Infinity) minR = 0;
+    return { pathFn, rateMap, minRate: minR, maxRate: maxR };
+  }, [precinctRates, width, height]);
+
+  const handleMouse = (e) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  };
+
+  const hoveredData = hovered ? rateMap[hovered] : null;
+
+  return (
+    <div className="relative">
+      <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} className="w-full h-auto" onMouseMove={handleMouse}>
+        <defs>
+          <pattern id="tourist-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="6" stroke="#999" strokeWidth="1.5" />
+          </pattern>
+        </defs>
+        {precinctGeoJSON.features.map(feature => {
+          const pNum = feature.properties.precinct;
+          const pData = rateMap[pNum];
+          const fill = pData?.isTourist ? '#e5e5e5' : crimeColor(pData?.rate, minRate, maxRate);
+          return (
+            <g key={pNum}>
+              <path
+                d={pathFn(feature)}
+                fill={fill}
+                stroke="#fff"
+                strokeWidth={hovered === pNum ? 2 : 0.5}
+                style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
+                onMouseEnter={() => setHovered(pNum)}
+                onMouseLeave={() => setHovered(null)}
+                onClick={() => pData && onSelect(pData.precinct)}
+              />
+              {pData?.isTourist && (
+                <path d={pathFn(feature)} fill="url(#tourist-hatch)" stroke="none" pointerEvents="none" />
+              )}
+            </g>
+          );
+        })}
+      </svg>
+      {hoveredData && (
+        <div
+          className="absolute pointer-events-none bg-white border border-gray-200 shadow-xl rounded p-3 z-50 text-[11px]"
+          style={{ left: Math.min(mousePos.x + 12, width - 180), top: mousePos.y - 10 }}
+        >
+          <div className="font-black text-black text-[12px] mb-1">{hoveredData.precinct}</div>
+          {PRECINCT_NEIGHBORHOODS[hoveredData.precinct] && <div className="text-gray-500 mb-2">{PRECINCT_NEIGHBORHOODS[hoveredData.precinct]}</div>}
+          {hoveredData.isTourist ? (
+            <div className="text-gray-500 italic">Tourist/commercial hub — rates not comparable</div>
+          ) : (
+            <>
+              <div className="font-bold text-black">{hoveredData.count.toLocaleString()} incidents</div>
+              {hoveredData.rate != null && <div className="text-gray-600">{hoveredData.rate.toFixed(1)} per 100k</div>}
+            </>
+          )}
+        </div>
+      )}
+      {/* Legend */}
+      <div className="flex items-center gap-2 mt-3 text-[10px] text-gray-500">
+        <span>Low</span>
+        <div className="flex-1 h-2 rounded" style={{ background: `linear-gradient(to right, rgb(240,240,240), rgb(255,213,189), rgb(255,124,83), rgb(231,70,109), rgb(57,72,130))` }} />
+        <span>High</span>
+        <span className="ml-3 pl-3 border-l border-gray-300 flex items-center gap-1">
+          <span className="inline-block w-3 h-3 bg-gray-200" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, #999 2px, #999 3px)' }} />
+          Tourist
+        </span>
+      </div>
+    </div>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/* PRECINCT RANKING BARS                                               */
+/* ------------------------------------------------------------------ */
+const PrecinctRankingBars = ({ precinctRates, onSelect }) => {
+  const { top5, bottom5 } = useMemo(() => {
+    const valid = precinctRates.filter(p => p.rate != null && !p.isTourist).sort((a, b) => b.rate - a.rate);
+    return { top5: valid.slice(0, 5), bottom5: valid.slice(-5).reverse() };
+  }, [precinctRates]);
+
+  const maxRate = top5[0]?.rate || 1;
+
+  const renderBar = (item, color, maxW) => {
+    const barW = Math.max(4, (item.rate / maxRate) * maxW);
+    const hood = PRECINCT_NEIGHBORHOODS[item.precinct];
+    const label = hood ? `${item.precinct.replace(' Precinct', '')} (${hood.split(',')[0]})` : item.precinct.replace(' Precinct', '');
+    return (
+      <div key={item.precinct} className="flex items-center gap-2 py-1 cursor-pointer hover:bg-gray-50 -mx-2 px-2 rounded transition-colors" onClick={() => onSelect(item.precinct)}>
+        <span className="text-[11px] font-bold text-gray-800 w-28 truncate flex-shrink-0" title={item.precinct}>{label}</span>
+        <div className="flex-1 flex items-center gap-2">
+          <div className="h-4 rounded-sm" style={{ width: `${(barW / maxW) * 100}%`, minWidth: 4, background: color }} />
+          <span className="text-[11px] font-bold tabular-nums" style={{ color }}>{item.rate.toFixed(0)}</span>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex flex-col justify-between h-full">
+      <div>
+        <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-1" style={{ color: VC.magenta }}>
+          <TrendingUp size={12} /> Highest Rate (per 100k)
+        </div>
+        {top5.map(item => renderBar(item, VC.magenta, 200))}
+      </div>
+      <div className="mt-6 pt-4 border-t border-gray-100">
+        <div className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-1" style={{ color: VC.green }}>
+          <TrendingDown size={12} /> Lowest Rate (per 100k)
+        </div>
+        {bottom5.map(item => renderBar(item, VC.green, 200))}
+      </div>
+    </div>
+  );
+};
 
 /* ------------------------------------------------------------------ */
 /* COMPSTAT LIVE CHARTS                                               */
@@ -319,7 +608,9 @@ const DivergingBarChart = ({ data }) => {
         <span>Trajectory (% Change vs Prior Yr)</span>
       </div>
       <svg viewBox={`0 0 ${VIEWBOX_WIDTH} ${totalHeight}`} className="w-full h-auto">
-        <line x1={CENTER_X} y1="0" x2={CENTER_X} y2={totalHeight} stroke="#e5e7eb" strokeWidth="1.5" strokeDasharray="5 5" />
+        <rect x={CENTER_X} y="0" width={CENTER_X + MAX_BAR_WIDTH} height={totalHeight} fill="#fff7ed" fillOpacity="0.35" />
+        <rect x="0" y="0" width={CENTER_X} height={totalHeight} fill="#f0fdf4" fillOpacity="0.4" />
+        <line x1={CENTER_X} y1="0" x2={CENTER_X} y2={totalHeight} stroke="#d1d5db" strokeWidth="1" />
         {validData.map((row, i) => {
           const y = i * rowHeight + 16;
           const isIncrease = row.pct > 0;
@@ -461,10 +752,10 @@ ${driver ? `PRIMARY DRIVER OF CHANGE: ${driver.name} accounts for ${driver.share
 ${localAnomaly ? `LOCAL ANOMALY: ${localAnomaly.name} rate (${localAnomaly.localRate.toFixed(1)}/100k) is ${localAnomaly.ratio.toFixed(1)}x the citywide average` : ''}
 ${localBrightSpot ? `LOCAL BRIGHT SPOT: ${localBrightSpot.name} rate (${localBrightSpot.localRate.toFixed(1)}/100k) is ${((1 - localBrightSpot.ratio) * 100).toFixed(0)}% below citywide average` : ''}${precinctTable}
 
-=== HISTORICAL DATASETS FOR CONTEXT (1993-2025) ===
-If the user asks about historical context, refer to these reference arrays:
-CITYWIDE: ${JSON.stringify(CW)}
-PRECINCT: ${JSON.stringify(PC)}
+=== HISTORICAL DATASETS (1993-2025, annual complaint totals) ===
+CITYWIDE ANNUAL TOTALS (all crimes): ${JSON.stringify(crimeHistory.citywide)}
+${activeGeo !== 'citywide' && crimeHistory.precincts[activeGeo] ? `SELECTED PRECINCT HISTORY (${activeGeo}): ${JSON.stringify(crimeHistory.precincts[activeGeo])}` : ''}
+LEGACY PRECINCT SCATTER (poverty vs crime correlations): ${JSON.stringify(PC)}
 `;
   };
 
@@ -477,7 +768,15 @@ PRECINCT: ${JSON.stringify(PC)}
     setError('');
 
     const dataContext = buildContext();
-    const systemPrompt = `You are a concise, plain-language crime data analyst for Vital City. You have access to BOTH current weekly/YTD CompStat data AND 30-year historical datasets (1993-2025). Answer directly and precisely — 2 to 4 sentences maximum. Cite specific numbers. When comparing precincts, use per-capita rates (per 100k residents). Never use bullet points or headers.`;
+    const systemPrompt = `You are a concise, plain-language crime data analyst for Vital City. You have access to BOTH current weekly/YTD CompStat data AND 30-year historical datasets (1993-2025) including complaint counts, arrest counts, and shooting data by precinct and year.
+
+Rules:
+- Answer directly and precisely — 2 to 4 sentences maximum.
+- Cite specific numbers. Compute year-over-year changes, rates per 100k, and ratios when relevant.
+- When comparing precincts, ALWAYS use per-capita rates (per 100k residents) — never raw counts.
+- If the question requires a calculation (e.g. "which precinct has the highest murder rate"), show the work briefly.
+- Never use bullet points or headers. Write in plain prose.
+- If a question cannot be answered from the data provided, say so directly.`;
 
     const messages = [];
     history.forEach(h => {
@@ -503,7 +802,8 @@ PRECINCT: ${JSON.stringify(PC)}
       });
       if (!res.ok) throw new Error(`API returned ${res.status}`);
       const data = await res.json();
-      const text = data?.content?.[0]?.text || '';
+      const textBlock = data?.content?.find(b => b.type === 'text') || data?.content?.[0];
+      const text = textBlock?.text || '';
       if (!text) throw new Error('Empty response');
       setHistory(prev => [...prev, { q: questionText, a: text }]);
     } catch (e) {
@@ -602,10 +902,16 @@ export default function App() {
   const [trendFilter, setTrendFilter] = useState('all');
   const [isLocating, setIsLocating] = useState(false);
   const [locateMsg, setLocateMsg] = useState("");
-  const [showSearch, setShowSearch] = useState(false);
+  const [geoFocused, setGeoFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showHelp, setShowHelp] = useState(false);
   const [fetchError, setFetchError] = useState(false);
+
+  // Map & AI summary state
+  const [mapCrime, setMapCrime] = useState('all');
+  const [weeklySummary, setWeeklySummary] = useState('');
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const summaryDataRef = useRef(null);
 
   // Scatter plot state for Historic view
   const [xM, setXM] = useState('pov');
@@ -643,19 +949,18 @@ export default function App() {
     });
   };
 
-  const { boroughs, precincts } = useMemo(() => {
-    const keys = Object.keys(rawData).filter(k => k !== 'citywide');
-    return {
-      boroughs: keys.filter(k => !k.includes('Precinct')).sort(),
-      precincts: keys.filter(k => k.includes('Precinct')).sort((a, b) => parseInt(a) - parseInt(b))
-    };
+  const boroughs = useMemo(() => {
+    return Object.keys(rawData).filter(k => k !== 'citywide' && !k.includes('Precinct')).sort();
   }, [rawData]);
 
-  const filteredSearch = useMemo(() => {
-    if (!searchQuery) return [];
-    const q = searchQuery.toLowerCase();
-    return Object.entries(PRECINCT_NEIGHBORHOODS).filter(([pct, hoods]) => pct.toLowerCase().includes(q) || hoods.toLowerCase().includes(q)).map(([pct, hoods]) => ({ pct, hoods }));
-  }, [searchQuery]);
+  const geoSearchResults = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    const matchedBoroughs = boroughs.filter(b => !q || b.toLowerCase().includes(q));
+    const matchedPrecincts = Object.entries(PRECINCT_NEIGHBORHOODS)
+      .filter(([pct, hoods]) => !q || pct.toLowerCase().includes(q) || hoods.toLowerCase().includes(q))
+      .map(([pct, hoods]) => ({ pct, hoods }));
+    return { boroughs: matchedBoroughs, precincts: matchedPrecincts, showCitywide: !q || 'citywide'.includes(q) };
+  }, [searchQuery, boroughs]);
 
   const parsedData = useMemo(() => {
     const geoData = rawData[activeGeo] || rawData['citywide'];
@@ -771,9 +1076,74 @@ export default function App() {
     return { inequality, topPctSpike: allPrecinctCrimes[0], topPctDrop: allPrecinctCrimes[allPrecinctCrimes.length - 1] };
   }, [rawData, activeTab]);
 
-  const isTouristPrecinct = ["14th Precinct", "18th Precinct", "22nd Precinct"].includes(activeGeo);
+  const isTouristPrecinct = TOURIST_PRECINCTS.includes(activeGeo);
   const activePop = GEO_POPULATIONS[activeGeo] || (activeGeo === 'citywide' ? CITYWIDE_POPULATION : null);
   const formattedMPct = typeof parsedData.totals.mPct === 'number' ? Number(Math.abs(parsedData.totals.mPct)).toFixed(1) : '0.0';
+
+  // Compute per-100k rates for all precincts (for map + ranking bars)
+  const precinctRates = useMemo(() => {
+    const precinctKeys = Object.keys(rawData).filter(k => k.includes('Precinct'));
+    return precinctKeys.map(pct => {
+      const pop = GEO_POPULATIONS[pct];
+      const d = rawData[pct];
+      const felonies = d.seven_major_felonies || {};
+      const addl = d.additional_stats || {};
+      let count = 0;
+      const getter = (stats) => safeNum(activeTab === 'ytd' ? stats?.year_to_date?.current_year : stats?.week_to_date?.current_year);
+      if (mapCrime === 'all') {
+        Object.values(felonies).forEach(s => { count += getter(s); });
+      } else if (mapCrime === 'violent') {
+        ['Murder', 'Rape', 'Robbery', 'Fel. Assault'].forEach(c => { if (felonies[c]) count += getter(felonies[c]); });
+      } else if (mapCrime === 'property') {
+        ['Burglary', 'Gr. Larceny', 'G.L.A.'].forEach(c => { if (felonies[c]) count += getter(felonies[c]); });
+      } else {
+        const all = { ...felonies, ...addl };
+        if (all[mapCrime]) count = getter(all[mapCrime]);
+      }
+      const precinctNum = pct.replace(/\D+/g, '').replace(/^0+/, '');
+      return { precinct: pct, precinctNum, rate: pop ? (count / pop) * 100000 : null, count, isTourist: TOURIST_PRECINCTS.includes(pct) };
+    });
+  }, [rawData, activeTab, mapCrime]);
+
+  // Story of the Week: auto-generate AI summary on data load (citywide only)
+  useEffect(() => {
+    if (activeGeo !== 'citywide') return;
+    const dataKey = JSON.stringify(parsedData.totals);
+    if (summaryDataRef.current === dataKey) return;
+    summaryDataRef.current = dataKey;
+    const run = async () => {
+      setSummaryLoading(true);
+      try {
+        const ctx = [
+          `Period: ${parsedData.period?.week_start} – ${parsedData.period?.week_end}`,
+          `Total major index: ${parsedData.totals.mCur.toLocaleString()} (${parsedData.totals.mPct > 0 ? '+' : ''}${parsedData.totals.mPct.toFixed(1)}% vs prior year)`,
+          `Violent: ${parsedData.totals.vCur.toLocaleString()}, Property: ${parsedData.totals.pCur.toLocaleString()}`,
+          parsedData.driver ? `Primary driver: ${parsedData.driver.name} (${parsedData.driver.share.toFixed(0)}% of overall shift)` : '',
+          `Murder: ${parsedData.totals.murder}, Shooting victims: ${parsedData.totals.shootingVic}`,
+          hotspots?.topPctSpike ? `Biggest precinct spike: ${hotspots.topPctSpike.crime} in ${hotspots.topPctSpike.precinct} (+${hotspots.topPctSpike.pct.toFixed(1)}%)` : '',
+          hotspots?.topPctDrop ? `Biggest precinct drop: ${hotspots.topPctDrop.crime} in ${hotspots.topPctDrop.precinct} (${hotspots.topPctDrop.pct.toFixed(1)}%)` : '',
+          hotspots?.inequality ? `Top 5 violent precincts (${formatPop(hotspots.inequality.topPop)} residents) match crime total of ${hotspots.inequality.bottomCount} safest precincts (${formatPop(hotspots.inequality.bottomPop)} residents)` : '',
+          'Key offenses: ' + parsedData.felonies.map(f => `${f.name}: ${f.current.toLocaleString()} (${f.pct > 0 ? '+' : ''}${(f.pct || 0).toFixed(1)}%)`).join(', '),
+        ].filter(Boolean).join('\n');
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            max_tokens: 250,
+            system: "You are a concise NYC crime data analyst writing for a data-literate audience. Write exactly 2 sentences — the first captures the single most newsworthy pattern this reporting period, the second adds essential context or a striking contrast. Cite specific numbers. No bullet points, no headers, no hedging.",
+            messages: [{ role: 'user', content: `Here is this week's NYC CompStat summary data:\n${ctx}\n\nWrite the 2-sentence headline summary.` }]
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const tb = data?.content?.find(b => b.type === 'text') || data?.content?.[0];
+          setWeeklySummary(tb?.text || '');
+        }
+      } catch (e) { /* silent fail — summary is supplemental */ }
+      finally { setSummaryLoading(false); }
+    };
+    run();
+  }, [parsedData, hotspots, activeGeo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const buildTrendCards = () => {
     const cards = [];
@@ -783,15 +1153,21 @@ export default function App() {
         const driverShareText = driver.diff > 0
           ? `The overall surge was largely driven by **${driver.name}** index offenses, which account for **${driver.share.toFixed(0)}%** of the total citywide upward shift.`
           : `Nearly **${driver.share.toFixed(0)}%** of the total citywide drop in major index offenses can be attributed to **${driver.name}**, which saw **${Math.abs(driver.diff).toLocaleString()} fewer cases** than last year.`;
-        cards.push({ id: 'driver', icon: Target, title: 'Primary Driver', content: driverShareText });
+        const shareW = Math.min(100, driver.share);
+        cards.push({ id: 'driver', icon: Target, title: 'Primary Driver', content: driverShareText,
+          dataViz: (
+            <div className="mt-3 flex items-center gap-2">
+              <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-full rounded-full bg-gray-900" style={{ width: `${shareW}%` }} />
+              </div>
+              <span className="text-[10px] font-black text-gray-900 tabular-nums">{driver.share.toFixed(0)}%</span>
+            </div>
+          )
+        });
       }
-      
-      const peakTotal = CW[0].BU + CW[0].FA + CW[0].GA + CW[0].GL + CW[0].MU + CW[0].RA + CW[0].RO;
-      const curTotal = CW[CW.length - 1].BU + CW[CW.length - 1].FA + CW[CW.length - 1].GA + CW[CW.length - 1].GL + CW[CW.length - 1].MU + CW[CW.length - 1].RA + CW[CW.length - 1].RO;
-      const overallDrop = (((peakTotal - curTotal) / peakTotal) * 100).toFixed(0);
-      cards.push({ id: 'historic_drop', icon: Clock, title: '30-Year Context', content: `While current weekly shifts dominate headlines, the overall volume of major index crime remains **${overallDrop}% below** the 1993 peak (${curTotal.toLocaleString()} vs ${peakTotal.toLocaleString()} incidents annually).` });
 
-      if (hotspots?.inequality) cards.push({ id: 'inequality', icon: Activity, title: 'Geographic Disparities', content: `The **5 most dangerous precincts** (home to ~${formatPop(hotspots.inequality.topPop)} residents) carry the exact same violent index crime burden as the **${hotspots.inequality.bottomCount} safest precincts combined** (home to ~${formatPop(hotspots.inequality.bottomPop)} residents).` });
+
+
       if (hotspots?.topPctSpike || hotspots?.topPctDrop) {
         const flashContent = (
           <ul className="space-y-3 mt-1 text-[14px]">
@@ -801,7 +1177,19 @@ export default function App() {
         );
         cards.push({ id: 'flashpoints', icon: MapPin, title: 'Significant Local Shifts', content: flashContent });
       }
-      cards.push({ id: 'lethality', icon: AlertCircle, title: 'The Lethality Gap', content: `For every **1 homicide**, there were **${totals.lethalityRatio.toFixed(1)} shooting victims**. (A widening gap often points to improved trauma care rather than fewer street shootings).` });
+      const lethalDots = Math.round(totals.lethalityRatio);
+      cards.push({ id: 'lethality', icon: AlertCircle, title: 'The Lethality Gap', content: `For every **1 homicide**, there were **${totals.lethalityRatio.toFixed(1)} shooting victims**. (A widening gap often points to improved trauma care rather than fewer street shootings).`,
+        dataViz: (
+          <div className="mt-3 flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-full bg-gray-900 flex-shrink-0" title="1 homicide" />
+            <span className="text-[10px] font-bold text-gray-400 mx-0.5">:</span>
+            {Array.from({ length: lethalDots }).map((_, i) => (
+              <div key={i} className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: VC.orange, opacity: 0.7 + (i / lethalDots) * 0.3 }} title="shooting victim" />
+            ))}
+            {totals.lethalityRatio % 1 > 0.3 && <div className="w-3 h-3 rounded-full flex-shrink-0 opacity-40" style={{ background: VC.orange }} />}
+          </div>
+        )
+      });
     } else {
       if (driver && driver.share >= 25) cards.push({ id: 'local_driver', icon: Target, title: 'Local Driver', content: `The change in **${driver.name}** volume accounts for **${driver.share.toFixed(0)}%** of this area's trajectory.` });
       if (localAnomaly && !isTouristPrecinct) cards.push({ id: 'anomaly', icon: AlertTriangle, title: 'Elevated Local Risk', content: `The rate for **${localAnomaly.name}** here is **${localAnomaly.localRate.toFixed(1)} per 100k residents**, which is **${localAnomaly.ratio.toFixed(1)}x** higher than the citywide average (${localAnomaly.cityRate.toFixed(1)}).` });
@@ -1037,30 +1425,53 @@ export default function App() {
           <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto relative z-20">
             <div className="flex flex-col flex-1 md:w-80 relative">
               <div className="flex gap-2">
-                {!showSearch ? (
-                  <div className="relative flex-1">
-                    <select value={activeGeo} onChange={e => setActiveGeo(e.target.value)} className="w-full appearance-none text-[11px] font-black uppercase tracking-wider py-2.5 pl-4 pr-8 rounded border border-gray-300 bg-white focus:outline-none">
-                      <option value="citywide">Citywide</option>
-                      <optgroup label="Boroughs">{boroughs.map(b => <option key={b} value={b}>{b}</option>)}</optgroup>
-                      <optgroup label="Precincts">{precincts.map(p => <option key={p} value={p}>{formatGeoName(p)}</option>)}</optgroup>
-                    </select>
-                    <ChevronDown size={14} className="absolute right-3 top-3 pointer-events-none text-gray-500" />
-                  </div>
-                ) : (
-                  <div className="relative flex-1">
-                    <input autoFocus type="text" placeholder="Type a neighborhood..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} onBlur={() => setTimeout(() => setShowSearch(false), 200)} className="w-full text-[12px] font-bold py-2.5 px-4 rounded border border-indigo-400 focus:outline-none" />
-                    {searchQuery && <div className="absolute top-full left-0 w-full mt-1 bg-white border border-gray-200 shadow-xl rounded z-50 max-h-60 overflow-y-auto">
-                      {filteredSearch.length > 0 ? filteredSearch.map(r => (
-                        <button key={r.pct} onMouseDown={() => { setActiveGeo(r.pct); setShowSearch(false); setSearchQuery(''); }} className="w-full text-left p-3 border-b border-gray-50 hover:bg-gray-50">
-                          <div className="font-bold text-sm text-black">{r.pct}</div>
-                          <div className="text-[11px] text-gray-500">{r.hoods}</div>
+                <div className="relative flex-1">
+                  <SearchIcon size={14} className="absolute left-3 top-[11px] pointer-events-none text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search neighborhood or precinct..."
+                    value={geoFocused ? searchQuery : ''}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    onFocus={() => { setGeoFocused(true); setSearchQuery(''); }}
+                    onBlur={() => setTimeout(() => { setGeoFocused(false); setSearchQuery(''); }, 200)}
+                    className={`w-full text-[11px] font-black uppercase tracking-wider py-2.5 pl-9 pr-4 rounded border bg-white focus:outline-none ${geoFocused ? 'border-indigo-400' : 'border-gray-300'}`}
+                  />
+                  {!geoFocused && <span className="absolute left-9 top-[10px] text-[11px] font-black uppercase tracking-wider text-black pointer-events-none">{activeGeo === 'citywide' ? 'Citywide' : formatGeoName(activeGeo)}</span>}
+                  {geoFocused && (
+                    <div className="absolute top-full left-0 w-full mt-1 bg-white border border-gray-200 shadow-xl rounded z-50 max-h-72 overflow-y-auto">
+                      {geoSearchResults.showCitywide && (
+                        <button onMouseDown={() => { setActiveGeo('citywide'); setGeoFocused(false); setSearchQuery(''); }} className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b border-gray-100 ${activeGeo === 'citywide' ? 'bg-gray-50 font-black' : ''}`}>
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-black">Citywide</div>
                         </button>
-                      )) : <div className="p-3 text-sm text-gray-500">No matches found.</div>}
-                    </div>}
-                  </div>
-                )}
-                <button onClick={() => { setShowSearch(!showSearch); setSearchQuery(''); }} className="flex items-center justify-center px-3 border border-gray-300 rounded bg-white hover:bg-gray-50 text-gray-600"><SearchIcon size={14} /></button>
-                <button onClick={handleLocateUser} disabled={isLocating} className="flex items-center justify-center px-3 border border-gray-300 rounded bg-white hover:bg-gray-50 disabled:opacity-50">{isLocating ? <RefreshCw size={14} className="animate-spin" /> : <Navigation size={14} />}</button>
+                      )}
+                      {geoSearchResults.boroughs.length > 0 && (
+                        <>
+                          <div className="px-3 pt-2 pb-1 text-[9px] font-black uppercase tracking-widest text-gray-400">Boroughs</div>
+                          {geoSearchResults.boroughs.map(b => (
+                            <button key={b} onMouseDown={() => { setActiveGeo(b); setGeoFocused(false); setSearchQuery(''); }} className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${activeGeo === b ? 'bg-gray-50 font-black' : ''}`}>
+                              <div className="text-[11px] font-bold uppercase tracking-wider text-black">{b}</div>
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {geoSearchResults.precincts.length > 0 && (
+                        <>
+                          <div className="px-3 pt-2 pb-1 text-[9px] font-black uppercase tracking-widest text-gray-400 border-t border-gray-100">Precincts</div>
+                          {geoSearchResults.precincts.map(r => (
+                            <button key={r.pct} onMouseDown={() => { setActiveGeo(r.pct); setGeoFocused(false); setSearchQuery(''); }} className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${activeGeo === r.pct ? 'bg-gray-50' : ''}`}>
+                              <div className="text-[12px] font-bold text-black">{r.pct}</div>
+                              <div className="text-[10px] text-gray-500">{r.hoods}</div>
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {!geoSearchResults.showCitywide && geoSearchResults.boroughs.length === 0 && geoSearchResults.precincts.length === 0 && (
+                        <div className="px-3 py-3 text-sm text-gray-500">No matches found.</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <button onClick={handleLocateUser} disabled={isLocating} title="Find my precinct" className="flex items-center justify-center px-3 border border-gray-300 rounded bg-white hover:bg-gray-50 disabled:opacity-50">{isLocating ? <RefreshCw size={14} className="animate-spin" /> : <Navigation size={14} />}</button>
               </div>
               {locateMsg && <span className="absolute -bottom-5 left-0 text-[10px] font-bold uppercase tracking-widest text-indigo-600">{locateMsg}</span>}
             </div>
@@ -1080,8 +1491,20 @@ export default function App() {
             Violent index offenses account for <strong className="text-black">{Number((parsedData.totals.vCur / (parsedData.totals.mCur || 1)) * 100).toFixed(0)}%</strong> of the {parsedData.totals.mCur.toLocaleString()} major felonies reported {activeGeo === 'citywide' ? 'citywide' : `in the ${activeGeo}`}, while the remaining <strong className="text-black">{Number((parsedData.totals.pCur / (parsedData.totals.mCur || 1)) * 100).toFixed(0)}%</strong> are property-related.
           </p>
           <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
-            <div className="flex items-end gap-3">
-              <span className="text-5xl md:text-6xl font-black tabular-nums tracking-tighter leading-none">{parsedData.totals.mCur.toLocaleString()}</span>
+            <div className="flex items-end gap-3 relative">
+              {activeGeo === 'citywide' && (() => {
+                const totals = CW.map(d => d.BU + d.FA + d.GA + d.GL + d.MU + d.RA + d.RO);
+                const maxT = Math.max(...totals);
+                const w = 200; const h = 48;
+                const pts = totals.map((v, i) => `${(i / (totals.length - 1)) * w},${h - (v / maxT) * h}`).join(' ');
+                const area = pts + ` ${w},${h} 0,${h}`;
+                return (
+                  <svg width={w} height={h} className="absolute bottom-0 left-0 opacity-[0.08] pointer-events-none" preserveAspectRatio="none">
+                    <polygon points={area} fill={VC.black} />
+                  </svg>
+                );
+              })()}
+              <span className="text-5xl md:text-6xl font-black tabular-nums tracking-tighter leading-none relative">{parsedData.totals.mCur.toLocaleString()}</span>
               <div className="pb-1.5 flex flex-col">
                 <span className="text-sm font-medium text-gray-500 uppercase tracking-widest mb-1">Index Total</span>
                 <span className={`text-base font-bold tabular-nums ${parsedData.totals.mPct > 0 ? 'text-orange-600' : 'text-green-600'}`}>
@@ -1099,16 +1522,62 @@ export default function App() {
           </div>
         </section>
 
-        <section className="mb-10 bg-[#050507] text-white p-6 md:p-8 rounded-lg flex flex-col md:flex-row justify-between items-center gap-6 shadow-xl">
-          <div>
-            <div className="text-[11px] font-black uppercase tracking-[0.15em] text-[#ff7c53] mb-2 flex items-center gap-2"><Activity size={14}/> Deep Dive Analysis</div>
-            <h2 className="text-2xl font-black font-serif mb-2">NYC Crime: The 30-Year View</h2>
-            <p className="text-gray-300 text-sm max-w-xl leading-relaxed">We mapped 30 years of citywide trends against current precinct poverty data, harassment records, and misdemeanor metrics to find what the standard CompStat narrative misses.</p>
-          </div>
-          <button onClick={() => setAppView('historic')} className="whitespace-nowrap px-6 py-3 bg-[#ff7c53] hover:bg-[#e66c45] text-white text-[12px] font-black uppercase tracking-widest rounded transition-colors shadow-lg">
-            Explore the Data
+        {/* Story of the Week — AI-generated summary (citywide only) */}
+        {activeGeo === 'citywide' && (weeklySummary || summaryLoading) && (
+          <section className="mb-10 p-5 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles size={16} className="text-[#ff7c53]" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Story of the Week</span>
+              <span className="text-[9px] font-medium text-gray-400 ml-auto uppercase tracking-wider">AI-generated</span>
+            </div>
+            {summaryLoading ? (
+              <div className="h-12 bg-gray-200 rounded animate-pulse" />
+            ) : (
+              <p className="font-serif text-[16px] leading-relaxed text-gray-800">{renderMarkdown(weeklySummary)}</p>
+            )}
+          </section>
+        )}
+
+        <div className="mb-6 flex items-center gap-2">
+          <button onClick={() => setAppView('historic')} className="text-[11px] font-black uppercase tracking-widest text-gray-400 hover:text-black transition-colors flex items-center gap-1.5">
+            <Activity size={12} /> Explore the 30-Year View →
           </button>
-        </section>
+        </div>
+
+        {/* Precinct Choropleth Map + Ranking Bars (citywide only) */}
+        {activeGeo === 'citywide' && (
+          <section className="mb-10 pt-8 border-t border-gray-200">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-5 gap-4">
+              <div>
+                <h2 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 mb-1">Geographic View</h2>
+                <p className="text-sm text-gray-500 font-serif">Crime rates per 100k residents by precinct. Click any precinct to drill down.
+                  {hotspots?.inequality && <span className="ml-1 text-gray-400">The {hotspots.inequality.topCount} highest-crime precincts ({formatPop(hotspots.inequality.topPop)} residents) match the violent crime total of the {hotspots.inequality.bottomCount} safest ({formatPop(hotspots.inequality.bottomPop)} residents).</span>}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1 bg-gray-100 p-1 rounded border border-gray-200">
+                {[['all', 'All Major'], ['violent', 'Violent'], ['property', 'Property']].map(([val, label]) => (
+                  <button key={val} onClick={() => setMapCrime(val)} className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-sm transition-colors ${mapCrime === val ? 'bg-white shadow-sm text-black' : 'text-gray-500 hover:text-black'}`}>{label}</button>
+                ))}
+                <select value={['all', 'violent', 'property'].includes(mapCrime) ? '' : mapCrime} onChange={e => e.target.value && setMapCrime(e.target.value)} className="text-[10px] font-black uppercase tracking-widest bg-transparent border-none focus:outline-none text-gray-500 cursor-pointer pl-2">
+                  <option value="">Crime...</option>
+                  {['Murder', 'Rape', 'Robbery', 'Fel. Assault', 'Burglary', 'Gr. Larceny', 'G.L.A.', 'Petit Larceny', 'Misd. Assault'].map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+              <div className="lg:col-span-3">
+                <PrecinctMap precinctRates={precinctRates} onSelect={setActiveGeo} activeGeo={activeGeo} />
+              </div>
+              <div className="lg:col-span-2">
+                <PrecinctRankingBars precinctRates={precinctRates} onSelect={setActiveGeo} />
+              </div>
+            </div>
+          </section>
+        )}
+
+        {activeGeo === 'citywide' && <CityComparisonWidget />}
 
         <QueryBox
           parsedData={parsedData}
@@ -1118,7 +1587,7 @@ export default function App() {
           rawData={rawData}
         />
 
-        <section className="mb-12 pt-8 border-t border-gray-200">
+        <section className="mb-8 pt-8 border-t border-gray-200">
           <h2 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 mb-5">Trends to Watch</h2>
           <div className={`grid grid-cols-1 md:grid-cols-2 ${trendCards.length === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-8`}>
             {trendCards.map(card => {
@@ -1127,6 +1596,7 @@ export default function App() {
                 <div key={card.id} className="p-6 bg-gray-50 rounded-sm">
                   <div className="flex items-center gap-2 mb-3"><IconComp size={16} className="text-black" /><h3 className="text-[10px] font-black uppercase tracking-widest text-black">{card.title}</h3></div>
                   <div className="font-serif text-[15px] leading-relaxed text-gray-700">{renderMarkdown(card.content)}</div>
+                  {card.dataViz && card.dataViz}
                 </div>
               );
             })}
@@ -1138,12 +1608,12 @@ export default function App() {
             <h2 className="text-2xl font-black font-serif">All Tracked Offenses</h2>
             <span className="text-[11px] font-black uppercase tracking-widest text-gray-400 mt-2 md:mt-0">Ranked by Incident Volume</span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-6">
             <div className="max-w-lg"><UnifiedMagnitudeChart data={parsedData.all} isTourist={isTouristPrecinct} citywideRates={parsedData.citywideRates} activeGeo={activeGeo} /></div>
             <div className="max-w-lg"><DivergingBarChart data={parsedData.all} /></div>
           </div>
           
-          <div className="flex flex-col md:flex-row justify-between items-end mb-6 border-b-2 border-black pb-4 gap-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 border-b-2 border-black pb-4 gap-4">
             <h3 className="text-[14px] font-black uppercase tracking-[0.15em] text-black">{trendFilter === 'all' ? 'Detailed Data Ledger' : trendFilter === 'up' ? 'Rising Offenses' : 'Falling Offenses'}</h3>
             <div className="flex bg-gray-100 p-1 rounded border border-gray-200 w-full md:w-auto">
               <button onClick={() => setTrendFilter('all')} className={`flex-1 md:flex-none px-4 py-1.5 text-[10px] font-black uppercase ${trendFilter === 'all' ? 'bg-white shadow-sm' : 'text-gray-500'}`}>All</button>
@@ -1156,26 +1626,51 @@ export default function App() {
               <thead>
                 <tr className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-gray-200">
                   <th className="py-3">Crime Category</th>
+                  <th className="py-3 text-center hidden sm:table-cell">{activeGeo === 'citywide' ? <span>YoY<span className="hidden md:inline ml-3 text-gray-300">|</span><span className="hidden md:inline ml-3">Since '19</span></span> : 'YoY'}</th>
                   <th className="py-3 text-right">Prior Year</th>
                   <th className="py-3 text-right">Current</th>
                   <th className="py-3 text-right">Change</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {(trendFilter === 'all' ? parsedData.all : (trendFilter === 'up' ? risingOffenses : fallingOffenses)).map(item => {
-                  const isVolatile = item.prior < VOLATILITY_THRESHOLD;
-                  return (
-                    <tr key={item.name} className="hover:bg-gray-50 transition-colors group">
-                      <td className="py-3 font-bold text-sm text-black">{item.name}{isVolatile && <span className="ml-1 text-gray-400">*</span>}</td>
-                      <td className={`py-3 text-right tabular-nums text-gray-500 ${isVolatile ? 'opacity-50' : ''}`}><div className="text-sm">{item.prior.toLocaleString()}</div></td>
-                      <td className={`py-3 text-right tabular-nums text-black ${isVolatile ? 'opacity-50' : ''}`}>
-                        <div className="text-sm font-black">{item.current.toLocaleString()}</div>
-                        {item.currentRate !== null && !isTouristPrecinct && <div className="text-[10px] font-normal text-gray-500">{item.currentRate.toFixed(1)}/100k (CW: {parsedData.citywideRates[item.name]?.toFixed(1)})</div>}
-                      </td>
-                      <td className={`py-3 text-right text-xs font-bold tabular-nums ${item.pct > 0 ? 'text-orange-600' : 'text-green-600'}`}>{formatPct(item.pct)}</td>
-                    </tr>
-                  );
-                })}
+                {(() => {
+                  const rows = trendFilter === 'all' ? parsedData.all : (trendFilter === 'up' ? risingOffenses : fallingOffenses);
+                  const maxAbsChange = Math.max(1, ...rows.map(r => Math.abs(r.pct || 0)));
+                  return rows.map(item => {
+                    const isVolatile = item.prior < VOLATILITY_THRESHOLD;
+                    const changeBarW = Math.abs(item.pct || 0) / maxAbsChange * 48;
+                    return (
+                      <tr key={item.name} className="hover:bg-gray-50 transition-colors group">
+                        <td className="py-2.5 font-bold text-sm text-black">{item.name}{isVolatile && <span className="ml-1 text-gray-400">*</span>}</td>
+                        <td className="py-2.5 text-center hidden sm:table-cell">
+                          <div className="flex items-center justify-center gap-3">
+                            <MiniSparkline points={[item.prior, item.current]} minY={0} />
+                            {activeGeo === 'citywide' && (() => {
+                              const since2019 = crimeHistory.citywide.filter(d => d.y >= 2019).map(d => d[item.name]).filter(v => v != null);
+                              if (since2019.length < 2) return <span className="hidden md:inline-block w-[56px]" />;
+                              return <span className="hidden md:inline-block"><MiniSparkline points={since2019} width={56} height={18} /></span>;
+                            })()}
+                          </div>
+                        </td>
+                        <td className={`py-2.5 text-right tabular-nums text-gray-500 ${isVolatile ? 'opacity-50' : ''}`}>
+                          <div className="text-sm">{item.prior.toLocaleString()}</div>
+                        </td>
+                        <td className={`py-2.5 text-right tabular-nums text-black ${isVolatile ? 'opacity-50' : ''}`}>
+                          <div className="text-sm font-black">{item.current.toLocaleString()}</div>
+                          {item.currentRate !== null && !isTouristPrecinct && <div className="text-[10px] font-normal text-gray-500">{item.currentRate.toFixed(1)}/100k (CW: {parsedData.citywideRates[item.name]?.toFixed(1)})</div>}
+                        </td>
+                        <td className={`py-2.5 text-right text-xs font-bold tabular-nums ${item.pct > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <div className="w-12 h-[3px] bg-gray-100 rounded-full overflow-hidden flex" style={{ justifyContent: item.pct > 0 ? 'flex-start' : 'flex-end' }}>
+                              <div className="h-full rounded-full" style={{ width: `${changeBarW}px`, background: item.pct > 0 ? VC.orange : VC.green }} />
+                            </div>
+                            <span>{formatPct(item.pct)}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  });
+                })()}
               </tbody>
             </table>
           </div>

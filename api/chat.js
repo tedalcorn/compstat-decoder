@@ -4,20 +4,26 @@ export default async function handler(req, res) {
   }
 
   try {
+    const useThinking = req.body.thinking !== false;
+    const body = {
+      model: 'claude-sonnet-4-6-20250514',
+      max_tokens: useThinking ? 16000 : (req.body.max_tokens || 1000),
+      system: req.body.system,
+      messages: req.body.messages
+    };
+
+    if (useThinking) {
+      body.thinking = { type: 'enabled', budget_tokens: 10000 };
+    }
+
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+        'anthropic-version': '2025-04-14'
       },
-      body: JSON.stringify({
-        // Using the 2025 model ID from your code
-        model: 'claude-sonnet-4-20250514', 
-        max_tokens: req.body.max_tokens || 1000,
-        system: req.body.system,
-        messages: req.body.messages
-      })
+      body: JSON.stringify(body)
     });
 
     const data = await anthropicResponse.json();
