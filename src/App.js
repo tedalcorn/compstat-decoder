@@ -43,7 +43,7 @@ const CW = [
 const MA_CW = {2000:57304,2001:57753,2002:52469,2003:51298,2004:52158,2005:52408,2006:52169,2007:51429,2008:50310,2009:50216,2010:52716,2011:50972,2012:54495,2013:53738,2014:53847,2015:42654,2016:42422,2017:41665,2018:43126,2019:42529,2020:33400,2021:36553,2022:41161,2023:44151,2024:47738};
 
 // Multiplied by 10 to shift from /10k to /100k
-const BP = [
+const BP = [ // eslint-disable-line no-unused-vars
   {y:1993,Bx:5385,Bk:5413,Mn:7688,Qn:5168,SI:3160},
   {y:1997,Bx:3010,Bk:2877,Mn:4193,Qn:2799,SI:1670},
   {y:2001,Bx:2019,Bk:2014,Mn:2837,Qn:1702,SI:907},
@@ -139,8 +139,8 @@ const PC = [
 const K7 = ['BU','FA','GA','GL','MU','RA','RO'];
 const CC = {BU:'#394882',FA:'#e7466d',GA:'#9b9fbc',GL:'#ff7c53',MU:'#050507',RA:'#cea9be',RO:'#217ebe'};
 const CL = {BU:'Burglary',FA:'Fel. Assault',GA:'Grand Larceny Auto',GL:'Grand Larceny',MU:'Murder',RA:'Rape',RO:'Robbery'};
-const BC = {Bx:'#e7466d',Bk:'#394882',Mn:'#ff7c53',Qn:'#707175',SI:'#9b9fbc'};
-const BL = {Bx:'Bronx',Bk:'Brooklyn',Mn:'Manhattan',Qn:'Queens',SI:'Staten Island'};
+const BC = {Bx:'#e7466d',Bk:'#394882',Mn:'#ff7c53',Qn:'#707175',SI:'#9b9fbc'}; // eslint-disable-line no-unused-vars
+const BL = {Bx:'Bronx',Bk:'Brooklyn',Mn:'Manhattan',Qn:'Queens',SI:'Staten Island'}; // eslint-disable-line no-unused-vars
 
 const GITHUB_USER = "joshgreenman1973";
 const REPO_NAME = "nypd-compstat-scraper";
