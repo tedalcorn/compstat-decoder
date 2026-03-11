@@ -768,15 +768,7 @@ LEGACY PRECINCT SCATTER (poverty vs crime correlations): ${JSON.stringify(PC)}
     setError('');
 
     const dataContext = buildContext();
-    const systemPrompt = `You are a concise, plain-language crime data analyst for Vital City. You have access to BOTH current weekly/YTD CompStat data AND 30-year historical datasets (1993-2025) including complaint counts, arrest counts, and shooting data by precinct and year.
-
-Rules:
-- Answer directly and precisely — 2 to 4 sentences maximum.
-- Cite specific numbers. Compute year-over-year changes, rates per 100k, and ratios when relevant.
-- When comparing precincts, ALWAYS use per-capita rates (per 100k residents) — never raw counts.
-- If the question requires a calculation (e.g. "which precinct has the highest murder rate"), show the work briefly.
-- Never use bullet points or headers. Write in plain prose.
-- If a question cannot be answered from the data provided, say so directly.`;
+    const systemPrompt = `You are a concise, plain-language crime data analyst for Vital City. You have access to BOTH current weekly/YTD CompStat data AND 30-year historical datasets (1993-2025). Answer directly and precisely — 2 to 4 sentences maximum. Cite specific numbers. When comparing precincts, use per-capita rates (per 100k residents). Never use bullet points or headers.`;
 
     const messages = [];
     history.forEach(h => {
@@ -802,8 +794,7 @@ Rules:
       });
       if (!res.ok) throw new Error(`API returned ${res.status}`);
       const data = await res.json();
-      const textBlock = data?.content?.find(b => b.type === 'text') || data?.content?.[0];
-      const text = textBlock?.text || '';
+      const text = data?.content?.[0]?.text || '';
       if (!text) throw new Error('Empty response');
       setHistory(prev => [...prev, { q: questionText, a: text }]);
     } catch (e) {
@@ -1136,8 +1127,7 @@ export default function App() {
         });
         if (res.ok) {
           const data = await res.json();
-          const tb = data?.content?.find(b => b.type === 'text') || data?.content?.[0];
-          setWeeklySummary(tb?.text || '');
+          setWeeklySummary(data?.content?.[0]?.text || '');
         }
       } catch (e) { /* silent fail — summary is supplemental */ }
       finally { setSummaryLoading(false); }
@@ -1422,9 +1412,9 @@ export default function App() {
               </div>}
             </div>
           </div>
-          <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto relative z-20">
-            <div className="flex flex-col flex-1 md:w-80 relative">
-              <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto relative z-20">
+            <div className="flex flex-1 md:w-72 relative min-w-[200px]">
+              <div className="flex gap-2 w-full">
                 <div className="relative flex-1">
                   <SearchIcon size={14} className="absolute left-3 top-[11px] pointer-events-none text-gray-400" />
                   <input
@@ -1474,7 +1464,7 @@ export default function App() {
               </div>
               {locateMsg && <span className="absolute -bottom-5 left-0 text-[10px] font-bold uppercase tracking-widest text-indigo-600">{locateMsg}</span>}
             </div>
-            <div className="flex w-fit border border-black rounded overflow-hidden">
+            <div className="flex border border-black rounded overflow-hidden shrink-0">
               <button onClick={() => setActiveTab('wtd')} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest ${activeTab === 'wtd' ? 'bg-black text-white' : 'bg-white'}`}>Weekly</button>
               <button onClick={() => setActiveTab('ytd')} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest ${activeTab === 'ytd' ? 'bg-black text-white' : 'bg-white'}`}>Year to Date</button>
             </div>
