@@ -591,7 +591,7 @@ const PrecinctRankingBars = ({ precinctRates, onSelect }) => {
 /* ------------------------------------------------------------------ */
 /* COMPSTAT LIVE CHARTS                                               */
 /* ------------------------------------------------------------------ */
-const DivergingBarChart = ({ data }) => {
+const DivergingBarChart = ({ data, vsLabel }) => {
   if (!data || data.length === 0) return null;
   const validData = data.filter(d => typeof d.pct === 'number' && d.pct !== null && (d.prior > 5 || d.current > 5));
   if (validData.length === 0) return null;
@@ -605,7 +605,7 @@ const DivergingBarChart = ({ data }) => {
   return (
     <div className="w-full font-sans">
       <div className="flex justify-between text-[10px] font-black uppercase tracking-widest border-b pb-2 mb-3 text-gray-400">
-        <span>Trajectory (% Change vs Prior Yr)</span>
+        <span>Trajectory (% Change vs {vsLabel || 'Prior Yr'})</span>
       </div>
       <svg viewBox={`0 0 ${VIEWBOX_WIDTH} ${totalHeight}`} className="w-full h-auto">
         <rect x={CENTER_X} y="0" width={CENTER_X + MAX_BAR_WIDTH} height={totalHeight} fill="#fff7ed" fillOpacity="0.35" />
@@ -630,7 +630,7 @@ const DivergingBarChart = ({ data }) => {
   );
 };
 
-const UnifiedMagnitudeChart = ({ data, isTourist, citywideRates, activeGeo }) => {
+const UnifiedMagnitudeChart = ({ data, isTourist, citywideRates, activeGeo, periodLabel }) => {
   if (!data || data.length === 0) return null;
   const maxVal = Math.max(1, ...data.map(d => d.current || 0));
   const rowHeight = 34;
@@ -641,7 +641,7 @@ const UnifiedMagnitudeChart = ({ data, isTourist, citywideRates, activeGeo }) =>
   return (
     <div className="w-full font-sans">
       <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest border-b pb-2 mb-3 text-gray-400">
-        <span>Incident Volume</span>
+        <span>Incident Volume{periodLabel && <span className="text-gray-300 ml-2 normal-case tracking-normal font-medium">({periodLabel})</span>}</span>
         <div className="hidden sm:flex items-center gap-3">
           <span className="flex items-center gap-1 text-[9px] font-bold" style={{color: VC.magenta}}><span className="w-1.5 h-1.5 rounded-full inline-block" style={{background: VC.magenta}}></span>Person</span>
           <span className="flex items-center gap-1 text-[9px] font-bold" style={{color: VC.indigo}}><span className="w-1.5 h-1.5 rounded-full inline-block" style={{background: VC.indigo}}></span>Property</span>
@@ -687,7 +687,8 @@ const LOCAL_QUESTIONS = [
   "How does this compare to citywide trends?",
 ];
 
-const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData }) => {
+const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData, priorYear: priorYearProp }) => {
+  const priorYear = priorYearProp || new Date().getFullYear() - 1;
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -708,7 +709,7 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData }) => {
     const geoLabel = activeGeo === 'citywide' ? 'Citywide (all of NYC)' : formatGeoName(activeGeo);
 
     const offenseLines = all.map(o =>
-      `  ${o.name}: ${o.current.toLocaleString()} incidents (${formatPct(o.pct)} vs prior year${o.currentRate !== null ? `, ${o.currentRate.toFixed(1)}/100k residents` : ''})`
+      `  ${o.name}: ${o.current.toLocaleString()} incidents (${formatPct(o.pct)} vs ${priorYear}${o.currentRate !== null ? `, ${o.currentRate.toFixed(1)}/100k residents` : ''})`
     ).join('\n');
 
     let precinctTable = '';
@@ -740,7 +741,7 @@ Geography: ${geoLabel}
 Timeframe: ${timeLabel} through ${periodStr}
 
 SUMMARY TOTALS:
-  Major index felonies: ${totals.mCur.toLocaleString()} (${formatPct(totals.mPct)} vs prior year's ${totals.mPri.toLocaleString()})
+  Major index felonies: ${totals.mCur.toLocaleString()} (${formatPct(totals.mPct)} vs ${priorYear}'s ${totals.mPri.toLocaleString()})
   Violent share: ${((totals.vCur / (totals.mCur || 1)) * 100).toFixed(0)}%
   Property share: ${((totals.pCur / (totals.mCur || 1)) * 100).toFixed(0)}%
   Murders: ${totals.murder}
@@ -1107,7 +1108,7 @@ export default function App() {
       try {
         const ctx = [
           `Period: ${parsedData.period?.week_start} – ${parsedData.period?.week_end}`,
-          `Total major index: ${parsedData.totals.mCur.toLocaleString()} (${parsedData.totals.mPct > 0 ? '+' : ''}${parsedData.totals.mPct.toFixed(1)}% vs prior year)`,
+          `Total major index: ${parsedData.totals.mCur.toLocaleString()} (${parsedData.totals.mPct > 0 ? '+' : ''}${parsedData.totals.mPct.toFixed(1)}% vs ${priorYear})`,
           `Violent: ${parsedData.totals.vCur.toLocaleString()}, Property: ${parsedData.totals.pCur.toLocaleString()}`,
           parsedData.driver ? `Primary driver: ${parsedData.driver.name} (${parsedData.driver.share.toFixed(0)}% of overall shift)` : '',
           `Murder: ${parsedData.totals.murder}, Shooting victims: ${parsedData.totals.shootingVic}`,
@@ -1135,6 +1136,16 @@ export default function App() {
     run();
   }, [parsedData, hotspots, activeGeo]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Derive display years from report period for clear labeling
+  const currentYear = useMemo(() => {
+    const we = parsedData.period?.week_end;
+    if (we) { const m = we.match(/\d{4}/); if (m) return Number(m[0]); }
+    return new Date().getFullYear();
+  }, [parsedData.period]);
+  const priorYear = currentYear - 1;
+  const periodLabel = activeTab === 'ytd' ? `${currentYear} YTD` : `Week of ${parsedData.period?.week_start || ''}`;
+  const vsLabel = activeTab === 'ytd' ? `${priorYear} YTD` : `Same week ${priorYear}`;
+
   const buildTrendCards = () => {
     const cards = [];
     const { driver, localAnomaly, localBrightSpot, topSurge, topDrop, totals } = parsedData;
@@ -1142,7 +1153,7 @@ export default function App() {
       if (driver) {
         const driverShareText = driver.diff > 0
           ? `The overall surge was largely driven by **${driver.name}** index offenses, which account for **${driver.share.toFixed(0)}%** of the total citywide upward shift.`
-          : `Nearly **${driver.share.toFixed(0)}%** of the total citywide drop in major index offenses can be attributed to **${driver.name}**, which saw **${Math.abs(driver.diff).toLocaleString()} fewer cases** than last year.`;
+          : `Nearly **${driver.share.toFixed(0)}%** of the total citywide drop in major index offenses can be attributed to **${driver.name}**, which saw **${Math.abs(driver.diff).toLocaleString()} fewer cases** than in ${priorYear}.`;
         const shareW = Math.min(100, driver.share);
         cards.push({ id: 'driver', icon: Target, title: 'Primary Driver', content: driverShareText,
           dataViz: (
@@ -1183,9 +1194,9 @@ export default function App() {
     } else {
       if (driver && driver.share >= 25) cards.push({ id: 'local_driver', icon: Target, title: 'Local Driver', content: `The change in **${driver.name}** volume accounts for **${driver.share.toFixed(0)}%** of this area's trajectory.` });
       if (localAnomaly && !isTouristPrecinct) cards.push({ id: 'anomaly', icon: AlertTriangle, title: 'Elevated Local Risk', content: `The rate for **${localAnomaly.name}** here is **${localAnomaly.localRate.toFixed(1)} per 100k residents**, which is **${localAnomaly.ratio.toFixed(1)}x** higher than the citywide average (${localAnomaly.cityRate.toFixed(1)}).` });
-      else if (topSurge && topSurge.pct > 0) cards.push({ id: 'surge', icon: TrendingUp, title: 'Local Trajectory', content: `**${topSurge.name}** index offenses have increased by **${topSurge.pct.toFixed(1)}%** compared to last year.` });
+      else if (topSurge && topSurge.pct > 0) cards.push({ id: 'surge', icon: TrendingUp, title: 'Local Trajectory', content: `**${topSurge.name}** index offenses have increased by **${topSurge.pct.toFixed(1)}%** vs. the same period in ${priorYear}.` });
       if (localBrightSpot && !isTouristPrecinct) cards.push({ id: 'brightspot', icon: ShieldCheck, title: 'Local Bright Spot', content: `The rate of **${localBrightSpot.name}** offenses here sits **${((1 - localBrightSpot.ratio)*100).toFixed(0)}% below** the citywide average.` });
-      else if (topDrop && topDrop.pct < 0) cards.push({ id: 'drop', icon: TrendingDown, title: 'Local Trajectory', content: `**${topDrop.name}** index offenses have fallen by **${Math.abs(topDrop.pct).toFixed(1)}%** here compared to last year.` });
+      else if (topDrop && topDrop.pct < 0) cards.push({ id: 'drop', icon: TrendingDown, title: 'Local Trajectory', content: `**${topDrop.name}** index offenses have fallen by **${Math.abs(topDrop.pct).toFixed(1)}%** here vs. the same period in ${priorYear}.` });
     }
     return cards;
   };
@@ -1377,7 +1388,7 @@ export default function App() {
 
           {/* Unified AI Query Box */}
           <div className="pt-12 mt-20 border-t border-gray-200">
-             <QueryBox parsedData={parsedData} activeGeo={activeGeo} activeTab={activeTab} period={parsedData.period} rawData={rawData} />
+             <QueryBox parsedData={parsedData} activeGeo={activeGeo} activeTab={activeTab} period={parsedData.period} rawData={rawData} priorYear={priorYear} />
           </div>
 
         </div>
@@ -1474,7 +1485,7 @@ export default function App() {
         <section className="mb-10">
           {isTouristPrecinct && <div className="mb-6 p-4 bg-gray-50 border-l-4 border-gray-400 text-sm font-serif italic text-gray-700"><strong>Context Note:</strong> {formatGeoName(activeGeo)} is a high-traffic hub with few residents; crime rates primarily reflect commercial/visitor density.</div>}
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black leading-[1.08] tracking-tight mb-3 text-black max-w-4xl">
-            Major index offenses are {parsedData.totals.diff > 0 ? 'up' : 'down'} {formattedMPct}% {activeTab === 'ytd' ? 'year-to-date' : 'this week'} vs. prior year.
+            Major index offenses are {parsedData.totals.diff > 0 ? 'up' : 'down'} {formattedMPct}% {activeTab === 'ytd' ? `in ${currentYear}` : 'this week'} vs. {activeTab === 'ytd' ? `${priorYear} YTD` : `same week ${priorYear}`}.
           </h1>
           <p className="text-base md:text-lg font-serif text-gray-600 mb-6 max-w-3xl leading-snug">
             Violent index offenses account for <strong className="text-black">{Number((parsedData.totals.vCur / (parsedData.totals.mCur || 1)) * 100).toFixed(0)}%</strong> of the {parsedData.totals.mCur.toLocaleString()} major felonies reported {activeGeo === 'citywide' ? 'citywide' : `in the ${activeGeo}`}, while the remaining <strong className="text-black">{Number((parsedData.totals.pCur / (parsedData.totals.mCur || 1)) * 100).toFixed(0)}%</strong> are property-related.
@@ -1497,7 +1508,7 @@ export default function App() {
               <div className="pb-1.5 flex flex-col">
                 <span className="text-sm font-medium text-gray-500 uppercase tracking-widest mb-1">Index Total</span>
                 <span className={`text-base font-bold tabular-nums ${parsedData.totals.mPct > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-                  {parsedData.totals.mPct > 0 ? '+' : (parsedData.totals.mPct < 0 ? '-' : '')}{formattedMPct}% vs {parsedData.totals.mPri.toLocaleString()} last yr
+                  {parsedData.totals.mPct > 0 ? '+' : (parsedData.totals.mPct < 0 ? '-' : '')}{formattedMPct}% vs {parsedData.totals.mPri.toLocaleString()} in {priorYear}
                 </span>
               </div>
             </div>
@@ -1527,6 +1538,31 @@ export default function App() {
           </section>
         )}
 
+        <section className="mb-8 pt-8 border-t border-gray-200">
+          <h2 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 mb-5">Trends to Watch</h2>
+          <div className={`grid grid-cols-1 md:grid-cols-2 ${trendCards.length === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-8`}>
+            {trendCards.map(card => {
+              const IconComp = card.icon;
+              return (
+                <div key={card.id} className="p-6 bg-gray-50 rounded-sm">
+                  <div className="flex items-center gap-2 mb-3"><IconComp size={16} className="text-black" /><h3 className="text-[10px] font-black uppercase tracking-widest text-black">{card.title}</h3></div>
+                  <div className="font-serif text-[15px] leading-relaxed text-gray-700">{renderMarkdown(card.content)}</div>
+                  {card.dataViz && card.dataViz}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <QueryBox
+          parsedData={parsedData}
+          activeGeo={activeGeo}
+          activeTab={activeTab}
+          period={parsedData.period}
+          rawData={rawData}
+          priorYear={priorYear}
+        />
+
         <div className="mb-6 flex items-center gap-2">
           <button onClick={() => setAppView('historic')} className="text-[11px] font-black uppercase tracking-widest text-gray-400 hover:text-black transition-colors flex items-center gap-1.5">
             <Activity size={12} /> Explore the 30-Year View →
@@ -1538,7 +1574,7 @@ export default function App() {
           <section className="mb-10 pt-8 border-t border-gray-200">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-5 gap-4">
               <div>
-                <h2 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 mb-1">Geographic View</h2>
+                <h2 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 mb-1">Geographic View <span className="text-gray-300 font-medium normal-case tracking-normal">— {periodLabel}</span></h2>
                 <p className="text-sm text-gray-500 font-serif">Crime rates per 100k residents by precinct. Click any precinct to drill down.
                   {hotspots?.inequality && <span className="ml-1 text-gray-400">The {hotspots.inequality.topCount} highest-crime precincts ({formatPop(hotspots.inequality.topPop)} residents) match the violent crime total of the {hotspots.inequality.bottomCount} safest ({formatPop(hotspots.inequality.bottomPop)} residents).</span>}
                 </p>
@@ -1568,42 +1604,18 @@ export default function App() {
 
         {activeGeo === 'citywide' && <CityComparisonWidget />}
 
-        <QueryBox
-          parsedData={parsedData}
-          activeGeo={activeGeo}
-          activeTab={activeTab}
-          period={parsedData.period}
-          rawData={rawData}
-        />
-
-        <section className="mb-8 pt-8 border-t border-gray-200">
-          <h2 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 mb-5">Trends to Watch</h2>
-          <div className={`grid grid-cols-1 md:grid-cols-2 ${trendCards.length === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-8`}>
-            {trendCards.map(card => {
-              const IconComp = card.icon;
-              return (
-                <div key={card.id} className="p-6 bg-gray-50 rounded-sm">
-                  <div className="flex items-center gap-2 mb-3"><IconComp size={16} className="text-black" /><h3 className="text-[10px] font-black uppercase tracking-widest text-black">{card.title}</h3></div>
-                  <div className="font-serif text-[15px] leading-relaxed text-gray-700">{renderMarkdown(card.content)}</div>
-                  {card.dataViz && card.dataViz}
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
         <section className="mb-12 pt-8 border-t-[3px] border-black">
           <div className="flex flex-col md:flex-row justify-between items-baseline mb-5">
             <h2 className="text-2xl font-black font-serif">All Tracked Offenses</h2>
-            <span className="text-[11px] font-black uppercase tracking-widest text-gray-400 mt-2 md:mt-0">Ranked by Incident Volume</span>
+            <span className="text-[11px] font-black uppercase tracking-widest text-gray-400 mt-2 md:mt-0">{periodLabel} vs {vsLabel}</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-6">
-            <div className="max-w-lg"><UnifiedMagnitudeChart data={parsedData.all} isTourist={isTouristPrecinct} citywideRates={parsedData.citywideRates} activeGeo={activeGeo} /></div>
-            <div className="max-w-lg"><DivergingBarChart data={parsedData.all} /></div>
+            <div className="max-w-lg"><UnifiedMagnitudeChart data={parsedData.all} isTourist={isTouristPrecinct} citywideRates={parsedData.citywideRates} activeGeo={activeGeo} periodLabel={periodLabel} /></div>
+            <div className="max-w-lg"><DivergingBarChart data={parsedData.all} vsLabel={vsLabel} /></div>
           </div>
           
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 border-b-2 border-black pb-4 gap-4">
-            <h3 className="text-[14px] font-black uppercase tracking-[0.15em] text-black">{trendFilter === 'all' ? 'Detailed Data Ledger' : trendFilter === 'up' ? 'Rising Offenses' : 'Falling Offenses'}</h3>
+            <h3 className="text-[14px] font-black uppercase tracking-[0.15em] text-black">{trendFilter === 'all' ? 'Detailed Data Ledger' : trendFilter === 'up' ? 'Rising Offenses' : 'Falling Offenses'} <span className="text-gray-400 font-medium normal-case tracking-normal text-[11px]">— {periodLabel} vs {vsLabel}</span></h3>
             <div className="flex bg-gray-100 p-1 rounded border border-gray-200 w-full md:w-auto">
               <button onClick={() => setTrendFilter('all')} className={`flex-1 md:flex-none px-4 py-1.5 text-[10px] font-black uppercase ${trendFilter === 'all' ? 'bg-white shadow-sm' : 'text-gray-500'}`}>All</button>
               <button onClick={() => setTrendFilter('up')} className={`flex-1 md:flex-none px-4 py-1.5 text-[10px] font-black uppercase ${trendFilter === 'up' ? 'bg-white shadow-sm text-orange-600' : 'text-gray-500'}`}>Rising</button>
@@ -1616,8 +1628,8 @@ export default function App() {
                 <tr className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-gray-200">
                   <th className="py-3">Crime Category</th>
                   <th className="py-3 text-center hidden sm:table-cell">{activeGeo === 'citywide' ? <span>YoY<span className="hidden md:inline ml-3 text-gray-300">|</span><span className="hidden md:inline ml-3">Since '19</span></span> : 'YoY'}</th>
-                  <th className="py-3 text-right">Prior Year</th>
-                  <th className="py-3 text-right">Current</th>
+                  <th className="py-3 text-right">{priorYear}</th>
+                  <th className="py-3 text-right">{currentYear}</th>
                   <th className="py-3 text-right">Change</th>
                 </tr>
               </thead>
