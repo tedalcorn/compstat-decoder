@@ -954,6 +954,8 @@ Precinct-level overall crime rates (per 100k) are provided for all precincts. Pr
 RULE 6 — WHEN IN DOUBT, SAY YOU DON'T KNOW:
 If you are not 100% certain the answer is in the DATA, say so. Never guess. Never hedge with "approximately" or "around." Either cite the exact figure from the data or say you don't have it.
 
+VERB TENSE: The current year's data is YEAR-TO-DATE, not a completed year. Use present-tense or ongoing language: "is down," "has risen," "are up so far this year." Do NOT use past tense ("rose," "fell," "dropped") which implies the year is finished.
+
 FORMAT: Answer in 2-4 sentences. Cite exact numbers from the data. No bullet points or headers.`;
 
     const messages = [];
@@ -1074,6 +1076,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('ytd');
   const [activeGeo, setActiveGeo] = useState('citywide');
   const [rawData, setRawData] = useState(FALLBACK_DATA);
+  const [dataReady, setDataReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [trendFilter, setTrendFilter] = useState('all');
   const [isLocating, setIsLocating] = useState(false);
@@ -1105,7 +1108,7 @@ export default function App() {
       if (json && json.citywide) { setRawData(json); return; }
     } catch (e1) {
       setFetchError(true);
-    } finally { setLoading(false); }
+    } finally { setLoading(false); setDataReady(true); }
   }, []);
 
   useEffect(() => { loadReport(); }, [loadReport]);
@@ -1347,7 +1350,8 @@ ABSOLUTE RULES:
 - If a figure is not in the data, do NOT mention it. Do NOT guess.
 - The data includes BOTH "YTD" (year-to-date) and "Week" (this week only) figures for every offense. Use the correct one for your claim. Do NOT confuse weekly totals with YTD totals.
 - Write exactly 2 sentences. The first captures the single most newsworthy pattern. The second adds essential context or a striking contrast.
-- Cite specific numbers from the data. No bullet points, no headers, no hedging.`,
+- Cite specific numbers from the data. No bullet points, no headers, no hedging.
+- VERB TENSE: The current year's data is year-to-date, NOT a completed year. Use present-tense or ongoing language ("is down," "has risen," "are up so far") — NOT past tense ("rose," "fell") which implies the year is finished.`,
             messages: [{ role: 'user', content: `Here is the latest NYPD CompStat data. Write a 2-sentence summary using ONLY these exact figures:\n\n${ctx}` }]
           })
         });
@@ -1959,6 +1963,8 @@ Precinct-level overall crime rates (per 100k) are provided. The SIGNIFICANT LOCA
 RULE 6 — WHEN IN DOUBT, SAY YOU DON'T KNOW:
 If you are not 100% certain the answer is in the DATA, say so. Never guess.
 
+VERB TENSE: The current year's data is YEAR-TO-DATE, not a completed year. Use present-tense or ongoing language: "is down," "has risen," "are up so far this year." Do NOT use past tense ("rose," "fell," "dropped") which implies the year is finished.
+
 FORMAT: Answer in 2-4 sentences. Cite exact numbers from the data. No bullet points or headers.`;
 
     const dataContext = buildAuditContext();
@@ -2000,6 +2006,10 @@ FORMAT: Answer in 2-4 sentences. Cite exact numbers from the data. No bullet poi
   // ==========================================
   // LIVE COMPSTAT DASHBOARD RENDER
   // ==========================================
+  if (!dataReady) {
+    return <div className="min-h-screen flex items-center justify-center bg-white"><p className="text-[11px] font-black uppercase tracking-widest text-gray-400 animate-pulse">Loading data…</p></div>;
+  }
+
   return (
     <div className="min-h-screen pb-12 font-sans bg-white text-black text-[15px]">
       {/* Audit Results Overlay */}
