@@ -1628,9 +1628,9 @@ ABSOLUTE RULES:
   // ==========================================
   // AUTO-AUDIT (admin only, triggered by ?audit=1)
   // ==========================================
-  const showAuditBtn = new URLSearchParams(window.location.search).has('audit');
+  const showAuditBtn = new URLSearchParams(window.location.search).has('audit'); // eslint-disable-line no-unused-vars
 
-  const runAudit = async () => {
+  const runAudit = async () => { // eslint-disable-line no-unused-vars
     if (auditRunning) return;
     setAuditRunning(true);
     setAuditResults({ progress: 0, total: 10, results: [] });
@@ -1643,7 +1643,7 @@ ABSOLUTE RULES:
 
     // Compute ground-truth values from rawData
     const murderYTD = sn(felonies['Murder']?.year_to_date?.current_year);
-    const murderPriYTD = sn(felonies['Murder']?.year_to_date?.prior_year);
+    const murderPriYTD = sn(felonies['Murder']?.year_to_date?.prior_year); // eslint-disable-line no-unused-vars
 
     let ytdTotal = 0;
     Object.values(felonies).forEach(s => { ytdTotal += sn(s?.year_to_date?.current_year); });
@@ -1767,7 +1767,7 @@ ABSOLUTE RULES:
     // Build context the same way QueryBox does — reuse the same data path
     // We call /api/chat with the same system prompt and full context
     const buildAuditContext = () => {
-      const geoData = cw;
+      const geoData = cw; // eslint-disable-line no-unused-vars
       const periodStr = `${rawData.period?.week_start || ''} – ${rawData.period?.week_end || ''}`;
       const pop = CITYWIDE_POPULATION;
       const extractBoth = (stats) => {
@@ -2067,11 +2067,13 @@ FORMAT: Answer in 2-4 sentences. Cite exact numbers from the data. No bullet poi
             </div>
             </div>
             <p className="text-[10px] text-gray-400 mt-1 leading-snug">NYPD CompStat data scraped, with key insights surfaced and synthesized. An independent project. Some of the work is done by AI, so everything here should be double-checked.</p>
+            {/* Audit disabled — re-enable with rate limiting later
             {showAuditBtn && (
               <button onClick={runAudit} disabled={auditRunning} className="mt-1 text-[9px] font-black uppercase tracking-widest text-orange-600 border border-orange-300 rounded px-2 py-0.5 hover:bg-orange-50 disabled:opacity-50">
                 {auditRunning ? `Auditing… ${auditResults?.progress || 0}/${auditResults?.total || 10}` : 'Run AI Audit'}
               </button>
             )}
+            */}
           </div>
           <div className="flex flex-col items-end gap-2 w-full md:w-auto relative z-20">
             <div className="flex w-full md:w-72 relative min-w-[200px]">
