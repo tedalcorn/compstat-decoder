@@ -619,7 +619,7 @@ const DivergingBarChart = ({ data, vsLabel }) => {
           const textColor = isIncrease ? VC.orange : VC.green;
           return (
             <g key={row.name}>
-              <text x="0" y={y + 5} fontSize="13" fontWeight="bold" fill={VC.black} opacity={isSmallN ? 0.5 : 1}>{row.name}{isSmallN ? '*' : ''}</text>
+              <text x="0" y={y + 5} fontSize="13" fontWeight="bold" fill={VC.black} opacity={isSmallN ? 0.5 : 1}>{row.name}{row.name === 'Hate Crimes' ? '†' : ''}{isSmallN ? '*' : ''}</text>
               <rect x={isIncrease ? CENTER_X : CENTER_X - barWidth} y={y - 9} width={barWidth} height="20" fill={textColor} fillOpacity={isSmallN ? 0.3 : 1} rx="3" />
               <text x={isIncrease ? CENTER_X + barWidth + 8 : CENTER_X - barWidth - 8} y={y + 5} textAnchor={isIncrease ? "start" : "end"} fontSize="12" fontWeight="bold" fill={textColor} opacity={isSmallN ? 0.5 : 1}>{formatPct(row.pct)}</text>
             </g>
@@ -654,7 +654,7 @@ const UnifiedMagnitudeChart = ({ data, isTourist, citywideRates, activeGeo, peri
           const color = VIOLENT_CRIMES.includes(row.name) ? VC.magenta : PROPERTY_CRIMES.includes(row.name) ? VC.indigo : VC.periwinkle;
           return (
             <g key={row.name}>
-              <text x={START_X - 14} y={y + 5} textAnchor="end" fontSize="13" fontWeight="bold" fill={VC.black}>{row.name}</text>
+              <text x={START_X - 14} y={y + 5} textAnchor="end" fontSize="13" fontWeight="bold" fill={VC.black}>{row.name}{row.name === 'Hate Crimes' ? '†' : ''}</text>
               <rect x={START_X} y={y - 10} width={barWidth} height="22" fill={color} rx="3" />
               <text x={START_X + barWidth + 8} y={y + 5} fontSize="13" fontWeight="bold" fill={VC.black}>
                 {row.current.toLocaleString()}
@@ -1381,7 +1381,7 @@ ABSOLUTE RULES:
 
   const buildTrendCards = () => {
     const cards = [];
-    const { driver, localAnomaly, localBrightSpot, topSurge, topDrop, totals } = parsedData;
+    const { driver, localAnomaly, localBrightSpot, topSurge, topDrop } = parsedData;
     if (activeGeo === 'citywide') {
       if (driver) {
         const driverShareText = driver.diff > 0
@@ -1411,19 +1411,28 @@ ABSOLUTE RULES:
         );
         cards.push({ id: 'flashpoints', icon: MapPin, title: 'Significant Local Shifts', content: flashContent });
       }
-      const lethalDots = Math.round(totals.lethalityRatio);
-      cards.push({ id: 'lethality', icon: AlertCircle, title: 'The Lethality Gap', content: `For every **1 homicide**, there were **${totals.lethalityRatio.toFixed(1)} shooting victims**. (A widening gap often points to improved trauma care rather than fewer street shootings).`,
-        dataViz: (
-          <div className="mt-3 flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-gray-900 flex-shrink-0" title="1 homicide" />
-            <span className="text-[10px] font-bold text-gray-400 mx-0.5">:</span>
-            {Array.from({ length: lethalDots }).map((_, i) => (
-              <div key={i} className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: VC.orange, opacity: 0.7 + (i / lethalDots) * 0.3 }} title="shooting victim" />
-            ))}
-            {totals.lethalityRatio % 1 > 0.3 && <div className="w-3 h-3 rounded-full flex-shrink-0 opacity-40" style={{ background: VC.orange }} />}
-          </div>
-        )
-      });
+      const felAssault = parsedData.all.find(o => o.name === 'Fel. Assault');
+      const misdAssault = parsedData.all.find(o => o.name === 'Misd. Assault');
+      if (felAssault && misdAssault) {
+        const totalCur = felAssault.current + misdAssault.current;
+        const totalPri = felAssault.prior + misdAssault.prior;
+        const felShare = ((felAssault.current / totalCur) * 100).toFixed(0);
+        const totalPct = totalPri > 0 ? formatPct(((totalCur - totalPri) / totalPri) * 100) : 'N/A';
+        cards.push({ id: 'assault', icon: AlertCircle, title: 'Assault Spotlight', content: `Combined felony and misdemeanor assaults total **${totalCur.toLocaleString()}** YTD (${totalPct} vs. ${priorYear}). Felony assaults make up **${felShare}%** of all assaults — felony is ${felAssault.pct > 0 ? 'up' : 'down'} **${Math.abs(felAssault.pct).toFixed(1)}%**, misdemeanor is ${misdAssault.pct > 0 ? 'up' : 'down'} **${Math.abs(misdAssault.pct).toFixed(1)}%**.`,
+          dataViz: (
+            <div className="mt-3">
+              <div className="flex h-3 rounded-full overflow-hidden">
+                <div className="bg-gray-900" style={{ width: `${felShare}%` }} title={`Felony: ${felAssault.current.toLocaleString()}`} />
+                <div style={{ width: `${100 - Number(felShare)}%`, background: VC.orange }} title={`Misdemeanor: ${misdAssault.current.toLocaleString()}`} />
+              </div>
+              <div className="flex justify-between mt-1 text-[10px] font-bold text-gray-500">
+                <span>Felony: {felAssault.current.toLocaleString()}</span>
+                <span>Misd: {misdAssault.current.toLocaleString()}</span>
+              </div>
+            </div>
+          )
+        });
+      }
     } else {
       if (driver && driver.share >= 25) cards.push({ id: 'local_driver', icon: Target, title: 'Local Driver', content: `The change in **${driver.name}** volume accounts for **${driver.share.toFixed(0)}%** of this area's trajectory.` });
       if (localAnomaly && !isTouristPrecinct) cards.push({ id: 'anomaly', icon: AlertTriangle, title: 'Elevated Local Risk', content: `The rate for **${localAnomaly.name}** here is **${localAnomaly.localRate.toFixed(1)} per 100k residents**, which is **${localAnomaly.ratio.toFixed(1)}x** higher than the citywide average (${localAnomaly.cityRate.toFixed(1)}).` });
@@ -2301,7 +2310,7 @@ FORMAT: Answer in 2-4 sentences. Cite exact numbers from the data. No bullet poi
                     const changeBarW = Math.abs(item.pct || 0) / maxAbsChange * 48;
                     return (
                       <tr key={item.name} className="hover:bg-gray-50 transition-colors group">
-                        <td className="py-2.5 font-bold text-sm text-black">{item.name}{isVolatile && <span className="ml-1 text-gray-400">*</span>}</td>
+                        <td className="py-2.5 font-bold text-sm text-black">{item.name}{item.name === 'Hate Crimes' && <span className="ml-1 text-gray-400">†</span>}{isVolatile && <span className="ml-1 text-gray-400">*</span>}</td>
                         <td className="py-2.5 text-center hidden sm:table-cell">
                           <div className="flex items-center justify-center gap-3">
                             <MiniSparkline points={[item.prior, item.current]} minY={0} />
@@ -2335,7 +2344,8 @@ FORMAT: Answer in 2-4 sentences. Cite exact numbers from the data. No bullet poi
             </table>
           </div>
           <div className="mt-6 text-[11px] font-serif italic text-gray-500 border-t border-gray-100 pt-4">
-            * Indicates a base sample size under 30 (statistically volatile).
+            * Indicates a base sample size under 30 (statistically volatile).<br />
+            † Starting in early 2026, the NYPD changed its methodology to report only "confirmed" hate crimes rather than all reported incidents, making direct year-over-year comparisons unreliable. <a href="https://gothamist.com/news/after-152-spike-nypd-changes-how-it-reports-hate-crimes" target="_blank" rel="noopener noreferrer" className="underline text-gray-600 hover:text-black">Read more (Gothamist)</a>.
           </div>
         </section>
       </div>
