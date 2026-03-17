@@ -327,19 +327,73 @@ const ArrowLeft = (p) => <Icon {...p}><line x1="19" y1="12" x2="5" y2="12"></lin
 
 /* ------------------------------------------------------------------ */
 /* CITY COMPARISON — Real-Time Crime Index (AH Datalytics)             */
-/* 12-month rolling totals per 100k residents, through Dec 2025        */
-/* Source: realtimecrimeindex.com  •  final_sample.csv                 */
+/* Fetched live from GitHub: AH-Datalytics/rtci scorecard.csv          */
+/* Source: realtimecrimeindex.com                                      */
 /* ------------------------------------------------------------------ */
-const RTCI_CITIES = [
-  { city: 'New York',     pop: 8184044, murder: 305, violent: 47211, property: 74331, isNYC: true },
-  { city: 'Los Angeles',  pop: 3786018, murder: 225, violent: 25854, property: 86495 },
-  { city: 'Chicago',      pop: 2628298, murder: 424, violent: 21595, property: 72438 },
-  { city: 'Houston',      pop: 2304406, murder: 270, violent: 21219, property: 91409 },
-  { city: 'Philadelphia', pop: 1550843, murder: 221, violent: 12772, property: 67170 },
-];
-const RTCI_PERIOD = 'Dec 2025';
-const RTCI_UPDATED = '2026-02-17';
+const RTCI_CSV_URL = 'https://raw.githubusercontent.com/AH-Datalytics/rtci/main/docs/app_data/scorecard.csv';
 const rtciRate = (count, pop) => +((count / pop) * 100000).toFixed(1);
+
+// Fallback data in case fetch fails
+const RTCI_FALLBACK = [
+  { city: 'New York City', pop: 8184044, murder: 305, violent: 47211, property: 74331, isNYC: true },
+  { city: 'Los Angeles',   pop: 3786018, murder: 225, violent: 25854, property: 86495 },
+  { city: 'Chicago',       pop: 2628298, murder: 424, violent: 21595, property: 72438 },
+  { city: 'Houston',       pop: 2304406, murder: 270, violent: 21219, property: 91409 },
+  { city: 'Philadelphia',  pop: 1550843, murder: 221, violent: 12772, property: 67170 },
+];
+const RTCI_FALLBACK_PERIOD = 'Dec 2025';
+const RTCI_FALLBACK_UPDATED = '2026-02-17';
+
+// Comparison groups — cities must match agency_name in RTCI CSV
+const RTCI_GROUPS = [
+  { key: 'largest5', label: '5 Largest', cities: ['New York City', 'Los Angeles', 'Chicago', 'Houston', 'Philadelphia'] },
+  { key: 'largest10', label: '10 Largest', cities: ['New York City', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Philadelphia', 'San Antonio', 'San Diego', 'Dallas', 'Jacksonville'] },
+  { key: 'northeast', label: 'Northeast', cities: ['New York City', 'Philadelphia', 'Baltimore', 'Boston', 'Pittsburgh', 'Washington', 'Buffalo'] },
+  { key: 'similar', label: 'Peer Cities', cities: ['New York City', 'Los Angeles', 'Chicago', 'San Francisco', 'Washington', 'Boston', 'Seattle'] },
+];
+
+function parseRTCIcsv(csvText) {
+  const lines = csvText.trim().split('\n');
+  if (lines.length < 2) return null;
+  // Parse CSV respecting quoted fields
+  const parseRow = (line) => {
+    const vals = []; let cur = '', inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQuote = !inQuote; }
+      else if (ch === ',' && !inQuote) { vals.push(cur.trim()); cur = ''; }
+      else { cur += ch; }
+    }
+    vals.push(cur.trim());
+    return vals;
+  };
+  const headers = parseRow(lines[0]);
+  const rows = lines.slice(1).map(parseRow);
+  const nameI = headers.indexOf('agency_name');
+  const typeI = headers.indexOf('crime_type');
+  const curI = headers.indexOf('current_year_ytd');
+  const popI = headers.indexOf('population');
+  const updI = headers.indexOf('last_updated');
+  const rangeI = headers.indexOf('ytd_month_range');
+  if (nameI < 0 || typeI < 0 || curI < 0 || popI < 0) return null;
+
+  // Build city data map
+  const cityMap = {};
+  let period = '', updated = '';
+  rows.forEach(r => {
+    const name = r[nameI], type = r[typeI];
+    const count = parseInt(r[curI], 10) || 0;
+    const pop = parseInt(r[popI], 10) || 0;
+    if (!period && r[rangeI]) period = r[rangeI].replace(/^.*?- /, '').replace('Jan - ', '').trim();
+    if (!updated && r[updI]) updated = r[updI];
+    if (!cityMap[name]) cityMap[name] = { city: name, pop, murder: 0, violent: 0, property: 0, isNYC: name === 'New York City' };
+    if (type === 'murder') cityMap[name].murder = count;
+    else if (type === 'violent_crime') cityMap[name].violent = count;
+    else if (type === 'property_crime') cityMap[name].property = count;
+    if (pop > 0) cityMap[name].pop = pop;
+  });
+  return { cities: cityMap, period, updated };
+}
 
 // Sequential color scale for choropleth: light neutral → orange → magenta
 const CHOROPLETH_STOPS = [
@@ -389,32 +443,62 @@ const MiniSparkline = ({ points, width = 48, height = 16, minY }) => {
 /* ------------------------------------------------------------------ */
 /* CITY COMPARISON WIDGET                                              */
 /* ------------------------------------------------------------------ */
-const CityComparisonWidget = () => {
+const CityComparisonWidget = ({ rtciData }) => {
   const metrics = [
     { key: 'murder', label: 'Murder', unit: 'per 100k' },
     { key: 'violent', label: 'Violent Crime', unit: 'per 100k' },
     { key: 'property', label: 'Property Crime', unit: 'per 100k' },
   ];
   const [activeMetric, setActiveMetric] = useState('murder');
+  const [activeGroup, setActiveGroup] = useState('largest5');
   const metric = metrics.find(m => m.key === activeMetric);
-  const ranked = RTCI_CITIES.map(c => ({ ...c, rate: rtciRate(c[activeMetric], c.pop) }))
+  const group = RTCI_GROUPS.find(g => g.key === activeGroup) || RTCI_GROUPS[0];
+
+  const allCities = rtciData?.cities || {};
+  const period = rtciData?.period || RTCI_FALLBACK_PERIOD;
+  const updated = rtciData?.updated || RTCI_FALLBACK_UPDATED;
+
+  // Get cities for current group, falling back to fallback data
+  const citiesForGroup = group.cities.map(name => {
+    if (allCities[name]) return allCities[name];
+    const fb = RTCI_FALLBACK.find(c => c.city === name);
+    return fb || null;
+  }).filter(Boolean);
+
+  // Always include NYC
+  if (!citiesForGroup.find(c => c.isNYC)) {
+    const nyc = allCities['New York City'] || RTCI_FALLBACK.find(c => c.isNYC);
+    if (nyc) citiesForGroup.unshift(nyc);
+  }
+
+  const ranked = citiesForGroup.map(c => ({ ...c, rate: rtciRate(c[activeMetric], c.pop) }))
     .sort((a, b) => a.rate - b.rate);
-  const maxRate = ranked[ranked.length - 1].rate;
+  const maxRate = ranked.length > 0 ? ranked[ranked.length - 1].rate : 1;
 
   return (
     <section className="mb-10 p-6 bg-gray-50 rounded-sm border border-gray-200">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
         <div>
           <h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">How NYC Compares</h3>
-          <p className="text-[13px] font-serif text-gray-600 mt-0.5">12-month rolling {metric.label.toLowerCase()} rate {metric.unit}, five largest U.S. cities</p>
+          <p className="text-[13px] font-serif text-gray-600 mt-0.5">12-month rolling {metric.label.toLowerCase()} rate {metric.unit}</p>
         </div>
-        <div className="flex bg-white p-1 rounded border border-gray-200">
-          {metrics.map(m => (
-            <button key={m.key} onClick={() => setActiveMetric(m.key)}
-              className={`px-3 py-1 text-[10px] font-black uppercase tracking-wide ${activeMetric === m.key ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
-              {m.label}
-            </button>
-          ))}
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex bg-white p-1 rounded border border-gray-200">
+            {metrics.map(m => (
+              <button key={m.key} onClick={() => setActiveMetric(m.key)}
+                className={`px-3 py-1 text-[10px] font-black uppercase tracking-wide ${activeMetric === m.key ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex bg-white p-0.5 rounded border border-gray-200">
+            {RTCI_GROUPS.map(g => (
+              <button key={g.key} onClick={() => setActiveGroup(g.key)}
+                className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide rounded-sm ${activeGroup === g.key ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-600'}`}>
+                {g.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       <div className="space-y-2.5">
@@ -423,8 +507,8 @@ const CityComparisonWidget = () => {
           const isNYC = c.isNYC;
           return (
             <div key={c.city} className="flex items-center gap-3">
-              <span className={`w-24 text-right text-[12px] ${isNYC ? 'font-black text-gray-900' : 'font-medium text-gray-500'}`}>
-                {c.city}
+              <span className={`w-28 text-right text-[12px] ${isNYC ? 'font-black text-gray-900' : 'font-medium text-gray-500'}`}>
+                {c.city === 'New York City' ? 'New York' : c.city}
               </span>
               <div className="flex-1 h-5 bg-gray-200 rounded-sm overflow-hidden relative">
                 <div className={`h-full rounded-sm ${isNYC ? 'bg-gray-900' : 'bg-gray-400'}`}
@@ -439,7 +523,7 @@ const CityComparisonWidget = () => {
       </div>
       <div className="mt-4 pt-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
         <p className="text-[10px] text-gray-400">
-          Data through {RTCI_PERIOD} · Updated {RTCI_UPDATED} · UCR Part I offenses · FBI population estimates
+          Data through {period} · Updated {updated} · UCR Part I offenses · FBI population estimates
         </p>
         <a href="https://realtimecrimeindex.com/" target="_blank" rel="noopener noreferrer"
           className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline whitespace-nowrap">
@@ -687,7 +771,7 @@ const LOCAL_QUESTIONS = [
   "How does this compare to citywide trends?",
 ];
 
-const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData, priorYear: priorYearProp }) => {
+const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData, priorYear: priorYearProp, rtciData }) => {
   const priorYear = priorYearProp || new Date().getFullYear() - 1;
   const currentYear = priorYear + 1;
   const [query, setQuery] = useState('');
@@ -884,8 +968,10 @@ const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData, priorYear
     }
 
     // City comparison data
-    const cityCompLine = activeGeo === 'citywide' ? `\nCITY COMPARISON (12-month rolling totals per 100k, through ${RTCI_PERIOD}, source: Real-Time Crime Index by AH Datalytics):\n` +
-      RTCI_CITIES.map(c => `  ${c.city}: Murder ${rtciRate(c.murder, c.pop)}/100k, Violent ${rtciRate(c.violent, c.pop)}/100k, Property ${rtciRate(c.property, c.pop)}/100k`).join('\n') : '';
+    const rtciCities = rtciData ? RTCI_GROUPS[0].cities.map(name => rtciData.cities[name]).filter(Boolean) : RTCI_FALLBACK;
+    const rtciPeriod = rtciData?.period || RTCI_FALLBACK_PERIOD;
+    const cityCompLine = activeGeo === 'citywide' ? `\nCITY COMPARISON (12-month rolling totals per 100k, through ${rtciPeriod}, source: Real-Time Crime Index by AH Datalytics):\n` +
+      rtciCities.map(c => `  ${c.city}: Murder ${rtciRate(c.murder, c.pop)}/100k, Violent ${rtciRate(c.violent, c.pop)}/100k, Property ${rtciRate(c.property, c.pop)}/100k`).join('\n') : '';
 
     return `=== LIVE NYPD COMPSTAT DATA (Week of ${periodStr}) ===
 Geography: ${geoLabel}
@@ -1088,6 +1174,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showHelp, setShowHelp] = useState(false);
   const [fetchError, setFetchError] = useState(false);
+  const [rtciData, setRtciData] = useState(null);
   const [auditRunning, setAuditRunning] = useState(false);
   const [auditResults, setAuditResults] = useState(null);
 
@@ -1115,6 +1202,22 @@ export default function App() {
   }, []);
 
   useEffect(() => { loadReport(); }, [loadReport]);
+
+  // Fetch RTCI city comparison data
+  useEffect(() => {
+    fetch(RTCI_CSV_URL)
+      .then(r => r.ok ? r.text() : Promise.reject('fetch failed'))
+      .then(csv => {
+        const parsed = parseRTCIcsv(csv);
+        if (parsed) setRtciData(parsed);
+      })
+      .catch(() => {
+        // Use fallback data
+        const fallbackMap = {};
+        RTCI_FALLBACK.forEach(c => { fallbackMap[c.city] = c; });
+        setRtciData({ cities: fallbackMap, period: RTCI_FALLBACK_PERIOD, updated: RTCI_FALLBACK_UPDATED });
+      });
+  }, []);
 
   const handleLocateUser = () => {
     if (!navigator.geolocation) { setLocateMsg("Location not supported"); return; }
@@ -1405,8 +1508,8 @@ ABSOLUTE RULES:
       if (hotspots?.topPctSpike || hotspots?.topPctDrop) {
         const flashContent = (
           <ul className="space-y-3 mt-1 text-[14px]">
-            {hotspots.topPctSpike && <li>{`In **${formatGeoName(hotspots.topPctSpike.precinct)}**, **${hotspots.topPctSpike.crime}** offenses have spiked by **${hotspots.topPctSpike.pct.toFixed(1)}%**.`}</li>}
-            {hotspots.topPctDrop && <li className="pt-2 border-t border-gray-100">{`In **${formatGeoName(hotspots.topPctDrop.precinct)}**, **${hotspots.topPctDrop.crime}** offenses have fallen by **${Math.abs(hotspots.topPctDrop.pct).toFixed(1)}%**.`}</li>}
+            {hotspots.topPctSpike && <li>{`In **${formatGeoName(hotspots.topPctSpike.precinct)}**, **${hotspots.topPctSpike.crime}** offenses have spiked by **${hotspots.topPctSpike.pct.toFixed(1)}%** vs. the same ${activeTab === 'ytd' ? 'period' : 'week'} last year.`}</li>}
+            {hotspots.topPctDrop && <li className="pt-2 border-t border-gray-100">{`In **${formatGeoName(hotspots.topPctDrop.precinct)}**, **${hotspots.topPctDrop.crime}** offenses have fallen by **${Math.abs(hotspots.topPctDrop.pct).toFixed(1)}%** vs. the same ${activeTab === 'ytd' ? 'period' : 'week'} last year.`}</li>}
           </ul>
         );
         cards.push({ id: 'flashpoints', icon: MapPin, title: 'Significant Local Shifts', content: flashContent });
@@ -1630,7 +1733,7 @@ ABSOLUTE RULES:
 
           {/* Unified AI Query Box */}
           <div className="pt-12 mt-20 border-t border-gray-200">
-             <QueryBox parsedData={parsedData} activeGeo={activeGeo} activeTab={activeTab} period={parsedData.period} rawData={rawData} priorYear={priorYear} />
+             <QueryBox parsedData={parsedData} activeGeo={activeGeo} activeTab={activeTab} period={parsedData.period} rawData={rawData} priorYear={priorYear} rtciData={rtciData} />
           </div>
 
         </div>
@@ -1689,8 +1792,9 @@ ABSOLUTE RULES:
     const topPrecinct = pctRates[0];
 
     // NYC vs Chicago murder rate
-    const nycRTCI = RTCI_CITIES.find(c => c.isNYC);
-    const chiRTCI = RTCI_CITIES.find(c => c.city === 'Chicago');
+    const rtciCitiesMap = rtciData?.cities || {};
+    const nycRTCI = rtciCitiesMap['New York City'] || RTCI_FALLBACK.find(c => c.isNYC);
+    const chiRTCI = rtciCitiesMap['Chicago'] || RTCI_FALLBACK.find(c => c.city === 'Chicago');
     const nycMurderRate = nycRTCI ? rtciRate(nycRTCI.murder, nycRTCI.pop) : 0;
     const chiMurderRate = chiRTCI ? rtciRate(chiRTCI.murder, chiRTCI.pop) : 0;
 
@@ -1915,8 +2019,10 @@ ABSOLUTE RULES:
         audPrecinctSummary = `\nPRECINCT CRIME RATES (YTD major index per 100k, ranked highest to lowest, citywide avg: ${avgRate.toFixed(0)}/100k):\n${allPctLines}\n\nTOP 5 HIGHEST-RATE (detail):\n${top5}\n\nTOP 5 LOWEST-RATE (detail):\n${bot5}${localShiftsLine}`;
       }
 
-      const cityCompLine = `\nCITY COMPARISON (12-month rolling totals per 100k, through ${RTCI_PERIOD}, source: Real-Time Crime Index by AH Datalytics):\n` +
-        RTCI_CITIES.map(c => `  ${c.city}: Murder ${rtciRate(c.murder, c.pop)}/100k, Violent ${rtciRate(c.violent, c.pop)}/100k, Property ${rtciRate(c.property, c.pop)}/100k`).join('\n');
+      const audRtciCities = rtciData ? RTCI_GROUPS[0].cities.map(name => rtciData.cities[name]).filter(Boolean) : RTCI_FALLBACK;
+      const audRtciPeriod = rtciData?.period || RTCI_FALLBACK_PERIOD;
+      const cityCompLine = `\nCITY COMPARISON (12-month rolling totals per 100k, through ${audRtciPeriod}, source: Real-Time Crime Index by AH Datalytics):\n` +
+        audRtciCities.map(c => `  ${c.city}: Murder ${rtciRate(c.murder, c.pop)}/100k, Violent ${rtciRate(c.violent, c.pop)}/100k, Property ${rtciRate(c.property, c.pop)}/100k`).join('\n');
 
       return `=== LIVE NYPD COMPSTAT DATA (Week of ${periodStr}) ===
 Geography: Citywide (all of NYC)
@@ -2229,6 +2335,7 @@ FORMAT: Answer in 2-4 sentences. Cite exact numbers from the data. No bullet poi
           period={parsedData.period}
           rawData={rawData}
           priorYear={priorYear}
+          rtciData={rtciData}
         />
 
         <div className="mb-6 flex items-center gap-2">
@@ -2270,7 +2377,7 @@ FORMAT: Answer in 2-4 sentences. Cite exact numbers from the data. No bullet poi
           </section>
         )}
 
-        {activeGeo === 'citywide' && <CityComparisonWidget />}
+        {activeGeo === 'citywide' && <CityComparisonWidget rtciData={rtciData} />}
 
         <section className="mb-12 pt-8 border-t-[3px] border-black">
           <div className="flex flex-col md:flex-row justify-between items-baseline mb-5">
