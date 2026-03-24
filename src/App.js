@@ -699,17 +699,18 @@ const DivergingBarChart = ({ data, vsLabel }) => {
   const scaleMax = Math.max(10, maxAbsPct);
   const rowHeight = 34;
   const totalHeight = validData.length * rowHeight + 16;
-  const VIEWBOX_WIDTH = 540;
-  const CENTER_X = 270;
-  const MAX_BAR_WIDTH = 180;
+  const VIEWBOX_WIDTH = 620;
+  const LABEL_WIDTH = 170;
+  const CENTER_X = LABEL_WIDTH + 150;
+  const MAX_BAR_WIDTH = 150;
   return (
     <div className="w-full font-sans">
       <div className="flex justify-between text-[10px] font-black uppercase tracking-widest border-b pb-2 mb-3 text-gray-400">
         <span>Trajectory (% Change vs {vsLabel || 'Prior Yr'})</span>
       </div>
       <svg viewBox={`0 0 ${VIEWBOX_WIDTH} ${totalHeight}`} className="w-full h-auto">
-        <rect x={CENTER_X} y="0" width={CENTER_X + MAX_BAR_WIDTH} height={totalHeight} fill="#fff7ed" fillOpacity="0.35" />
-        <rect x="0" y="0" width={CENTER_X} height={totalHeight} fill="#f0fdf4" fillOpacity="0.4" />
+        <rect x={CENTER_X} y="0" width={VIEWBOX_WIDTH - CENTER_X} height={totalHeight} fill="#fff7ed" fillOpacity="0.35" />
+        <rect x={LABEL_WIDTH} y="0" width={CENTER_X - LABEL_WIDTH} height={totalHeight} fill="#f0fdf4" fillOpacity="0.4" />
         <line x1={CENTER_X} y1="0" x2={CENTER_X} y2={totalHeight} stroke="#d1d5db" strokeWidth="1" />
         {validData.map((row, i) => {
           const y = i * rowHeight + 16;
@@ -719,7 +720,7 @@ const DivergingBarChart = ({ data, vsLabel }) => {
           const textColor = isIncrease ? VC.orange : VC.green;
           return (
             <g key={row.name}>
-              <text x="0" y={y + 5} fontSize="13" fontWeight="bold" fill={VC.black} opacity={isSmallN ? 0.5 : 1}>{offenseLabel(row.name)}{row.name === 'Hate Crimes' ? '†' : ''}{isSmallN ? '*' : ''}</text>
+              <text x={LABEL_WIDTH - 10} y={y + 5} textAnchor="end" fontSize="13" fontWeight="bold" fill={VC.black} opacity={isSmallN ? 0.5 : 1}>{offenseLabel(row.name)}{row.name === 'Hate Crimes' ? '†' : ''}{isSmallN ? '*' : ''}</text>
               <rect x={isIncrease ? CENTER_X : CENTER_X - barWidth} y={y - 9} width={barWidth} height="20" fill={textColor} fillOpacity={isSmallN ? 0.3 : 1} rx="3" />
               <text x={isIncrease ? CENTER_X + barWidth + 8 : CENTER_X - barWidth - 8} y={y + 5} textAnchor={isIncrease ? "start" : "end"} fontSize="12" fontWeight="bold" fill={textColor} opacity={isSmallN ? 0.5 : 1}>{formatPct(row.pct)}</text>
             </g>
@@ -735,9 +736,9 @@ const UnifiedMagnitudeChart = ({ data, isTourist, citywideRates, activeGeo, peri
   const maxVal = Math.max(1, ...data.map(d => d.current || 0));
   const rowHeight = 34;
   const totalHeight = data.length * rowHeight + 16;
-  const VIEWBOX_WIDTH = 680;
-  const START_X = 130;
-  const MAX_BAR_WIDTH = 280;
+  const VIEWBOX_WIDTH = 700;
+  const START_X = 170;
+  const MAX_BAR_WIDTH = 260;
   return (
     <div className="w-full font-sans">
       <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest border-b pb-2 mb-3 text-gray-400">
