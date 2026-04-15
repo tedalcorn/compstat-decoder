@@ -327,19 +327,70 @@ const ArrowLeft = (p) => <Icon {...p}><line x1="19" y1="12" x2="5" y2="12"></lin
 
 /* ------------------------------------------------------------------ */
 /* CITY COMPARISON — Real-Time Crime Index (AH Datalytics)             */
-/* 12-month rolling totals per 100k residents, through Dec 2025        */
-/* Source: realtimecrimeindex.com  •  final_sample.csv                 */
+/* Fetched live from GitHub: AH-Datalytics/rtci scorecard.csv          */
+/* Source: realtimecrimeindex.com                                      */
 /* ------------------------------------------------------------------ */
-const RTCI_CITIES = [
-  { city: 'New York',     pop: 8184044, murder: 305, violent: 47211, property: 74331, isNYC: true },
-  { city: 'Los Angeles',  pop: 3786018, murder: 225, violent: 25854, property: 86495 },
-  { city: 'Chicago',      pop: 2628298, murder: 424, violent: 21595, property: 72438 },
-  { city: 'Houston',      pop: 2304406, murder: 270, violent: 21219, property: 91409 },
-  { city: 'Philadelphia', pop: 1550843, murder: 221, violent: 12772, property: 67170 },
-];
-const RTCI_PERIOD = 'Dec 2025';
-const RTCI_UPDATED = '2026-02-17';
+const RTCI_CSV_URL = 'https://raw.githubusercontent.com/AH-Datalytics/rtci/main/docs/app_data/scorecard.csv';
 const rtciRate = (count, pop) => +((count / pop) * 100000).toFixed(1);
+
+// Fallback data in case fetch fails
+const RTCI_FALLBACK = [
+  { city: 'New York City', pop: 8184044, murder: 305, violent: 47211, property: 74331, isNYC: true },
+  { city: 'Los Angeles',   pop: 3786018, murder: 225, violent: 25854, property: 86495 },
+  { city: 'Chicago',       pop: 2628298, murder: 424, violent: 21595, property: 72438 },
+  { city: 'Houston',       pop: 2304406, murder: 270, violent: 21219, property: 91409 },
+  { city: 'Philadelphia',  pop: 1550843, murder: 221, violent: 12772, property: 67170 },
+];
+const RTCI_FALLBACK_PERIOD = 'Dec 2025';
+const RTCI_FALLBACK_UPDATED = '2026-02-17';
+
+// Comparison groups — cities must match agency_name in RTCI CSV
+const RTCI_GROUPS = [
+  { key: 'largest5', label: '5 Largest', cities: ['New York City', 'Los Angeles', 'Chicago', 'Houston', 'Philadelphia'] },
+  { key: 'largest10', label: '10 Largest', cities: ['New York City', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Philadelphia', 'San Antonio', 'San Diego', 'Dallas', 'Jacksonville'] },
+  { key: 'northeast', label: 'Northeast', cities: ['New York City', 'Philadelphia', 'Baltimore', 'Boston', 'Pittsburgh', 'Washington', 'Buffalo'] },
+];
+
+function parseRTCIcsv(csvText) {
+  const lines = csvText.trim().split('\n');
+  if (lines.length < 2) return null;
+  const parseRow = (line) => {
+    const vals = []; let cur = '', inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQuote = !inQuote; }
+      else if (ch === ',' && !inQuote) { vals.push(cur.trim()); cur = ''; }
+      else { cur += ch; }
+    }
+    vals.push(cur.trim());
+    return vals;
+  };
+  const headers = parseRow(lines[0]);
+  const rows = lines.slice(1).map(parseRow);
+  const nameI = headers.indexOf('agency_name');
+  const typeI = headers.indexOf('crime_type');
+  const curI = headers.indexOf('current_year_ytd');
+  const popI = headers.indexOf('population');
+  const updI = headers.indexOf('last_updated');
+  const rangeI = headers.indexOf('ytd_month_range');
+  if (nameI < 0 || typeI < 0 || curI < 0 || popI < 0) return null;
+
+  const cityMap = {};
+  let period = '', updated = '';
+  rows.forEach(r => {
+    const name = r[nameI], type = r[typeI];
+    const count = parseInt(r[curI], 10) || 0;
+    const pop = parseInt(r[popI], 10) || 0;
+    if (!period && r[rangeI]) period = r[rangeI].replace(/^.*?- /, '').replace('Jan - ', '').trim();
+    if (!updated && r[updI]) updated = r[updI];
+    if (!cityMap[name]) cityMap[name] = { city: name, pop, murder: 0, violent: 0, property: 0, isNYC: name === 'New York City' };
+    if (type === 'murder') cityMap[name].murder = count;
+    else if (type === 'violent_crime') cityMap[name].violent = count;
+    else if (type === 'property_crime') cityMap[name].property = count;
+    if (pop > 0) cityMap[name].pop = pop;
+  });
+  return { cities: cityMap, period, updated };
+}
 
 // Sequential color scale for choropleth: light neutral → orange → magenta
 const CHOROPLETH_STOPS = [
@@ -402,32 +453,60 @@ const MiniSparkline = ({ points, width = 48, height = 16, minY }) => {
 /* ------------------------------------------------------------------ */
 /* CITY COMPARISON WIDGET                                              */
 /* ------------------------------------------------------------------ */
-const CityComparisonWidget = () => {
+const CityComparisonWidget = ({ rtciData }) => {
   const metrics = [
     { key: 'murder', label: 'Murder', unit: 'per 100k' },
     { key: 'violent', label: 'Violent Crime', unit: 'per 100k' },
     { key: 'property', label: 'Property Crime', unit: 'per 100k' },
   ];
   const [activeMetric, setActiveMetric] = useState('murder');
+  const [activeGroup, setActiveGroup] = useState('largest5');
   const metric = metrics.find(m => m.key === activeMetric);
-  const ranked = RTCI_CITIES.map(c => ({ ...c, rate: rtciRate(c[activeMetric], c.pop) }))
+  const group = RTCI_GROUPS.find(g => g.key === activeGroup) || RTCI_GROUPS[0];
+
+  const allCities = rtciData?.cities || {};
+  const period = rtciData?.period || RTCI_FALLBACK_PERIOD;
+  const updated = rtciData?.updated || RTCI_FALLBACK_UPDATED;
+
+  const citiesForGroup = group.cities.map(name => {
+    if (allCities[name]) return allCities[name];
+    const fb = RTCI_FALLBACK.find(c => c.city === name);
+    return fb || null;
+  }).filter(Boolean);
+
+  if (!citiesForGroup.find(c => c.isNYC)) {
+    const nyc = allCities['New York City'] || RTCI_FALLBACK.find(c => c.isNYC);
+    if (nyc) citiesForGroup.unshift(nyc);
+  }
+
+  const ranked = citiesForGroup.map(c => ({ ...c, rate: rtciRate(c[activeMetric], c.pop) }))
     .sort((a, b) => a.rate - b.rate);
-  const maxRate = ranked[ranked.length - 1].rate;
+  const maxRate = ranked.length > 0 ? ranked[ranked.length - 1].rate : 1;
 
   return (
     <section className="mb-10 p-6 bg-gray-50 rounded-sm border border-gray-200">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
         <div>
           <h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">How NYC Compares</h3>
-          <p className="text-[13px] font-serif text-gray-600 mt-0.5">12-month rolling {metric.label.toLowerCase()} rate {metric.unit}, five largest U.S. cities</p>
+          <p className="text-[13px] font-serif text-gray-600 mt-0.5">12-month rolling {metric.label.toLowerCase()} rate {metric.unit}</p>
         </div>
-        <div className="flex bg-white p-1 rounded border border-gray-200">
-          {metrics.map(m => (
-            <button key={m.key} onClick={() => setActiveMetric(m.key)}
-              className={`px-3 py-1 text-[10px] font-black uppercase tracking-wide ${activeMetric === m.key ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
-              {m.label}
-            </button>
-          ))}
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex bg-white p-1 rounded border border-gray-200">
+            {metrics.map(m => (
+              <button key={m.key} onClick={() => setActiveMetric(m.key)}
+                className={`px-3 py-1 text-[10px] font-black uppercase tracking-wide ${activeMetric === m.key ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex bg-white p-0.5 rounded border border-gray-200">
+            {RTCI_GROUPS.map(g => (
+              <button key={g.key} onClick={() => setActiveGroup(g.key)}
+                className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide rounded-sm ${activeGroup === g.key ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-600'}`}>
+                {g.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       <div className="space-y-2.5">
@@ -436,8 +515,8 @@ const CityComparisonWidget = () => {
           const isNYC = c.isNYC;
           return (
             <div key={c.city} className="flex items-center gap-3">
-              <span className={`w-24 text-right text-[12px] ${isNYC ? 'font-black text-gray-900' : 'font-medium text-gray-500'}`}>
-                {c.city}
+              <span className={`w-28 text-right text-[12px] ${isNYC ? 'font-black text-gray-900' : 'font-medium text-gray-500'}`}>
+                {c.city === 'New York City' ? 'New York' : c.city}
               </span>
               <div className="flex-1 h-5 bg-gray-200 rounded-sm overflow-hidden relative">
                 <div className={`h-full rounded-sm ${isNYC ? 'bg-gray-900' : 'bg-gray-400'}`}
@@ -452,7 +531,7 @@ const CityComparisonWidget = () => {
       </div>
       <div className="mt-4 pt-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
         <p className="text-[10px] text-gray-400">
-          Data through {RTCI_PERIOD} · Updated {RTCI_UPDATED} · UCR Part I offenses · FBI population estimates
+          Data through {period} · Updated {updated} · UCR Part I offenses · FBI population estimates
         </p>
         <a href="https://realtimecrimeindex.com/" target="_blank" rel="noopener noreferrer"
           className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline whitespace-nowrap">
@@ -501,6 +580,14 @@ const PrecinctMap = ({ precinctRates, onSelect, activeGeo, mapMode = 'rate', wid
 
   const hoveredData = hovered ? rateMap[hovered] : null;
 
+  // Compute rank among non-tourist precincts (by rate, highest = rank 1)
+  const rateRanks = useMemo(() => {
+    const rankable = precinctRates.filter(p => !p.isTourist && p.rate != null).sort((a, b) => b.rate - a.rate);
+    const map = {};
+    rankable.forEach((p, i) => { map[p.precinctNum] = { rank: i + 1, total: rankable.length }; });
+    return map;
+  }, [precinctRates]);
+
   return (
     <div className="relative">
       <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} className="w-full h-auto" onMouseMove={handleMouse}>
@@ -534,30 +621,33 @@ const PrecinctMap = ({ precinctRates, onSelect, activeGeo, mapMode = 'rate', wid
           );
         })}
       </svg>
-      {hoveredData && (
-        <div
-          className="absolute pointer-events-none bg-white border border-gray-200 shadow-xl rounded p-3 z-50 text-[11px]"
-          style={{ left: Math.min(mousePos.x + 12, width - 180), top: mousePos.y - 10 }}
-        >
-          <div className="font-black text-black text-[12px] mb-1">{hoveredData.precinct}</div>
-          {PRECINCT_NEIGHBORHOODS[hoveredData.precinct] && <div className="text-gray-500 mb-2">{PRECINCT_NEIGHBORHOODS[hoveredData.precinct]}</div>}
-          {hoveredData.isTourist ? (
-            <div className="text-gray-500 italic">Tourist/commercial hub — rates not comparable</div>
-          ) : mapMode === 'change' ? (
-            <>
-              <div className="font-bold" style={{ color: hoveredData.pctChange > 0 ? '#c0392b' : hoveredData.pctChange < 0 ? '#27ae60' : '#333' }}>
-                {hoveredData.pctChange != null ? `${hoveredData.pctChange > 0 ? '+' : ''}${hoveredData.pctChange.toFixed(1)}% vs last year` : 'No change data'}
-              </div>
-              <div className="text-gray-600">{hoveredData.count.toLocaleString()} current vs {hoveredData.priorCount?.toLocaleString() ?? '?'} prior</div>
-            </>
-          ) : (
-            <>
-              <div className="font-bold text-black">{hoveredData.count.toLocaleString()} incidents</div>
-              {hoveredData.rate != null && <div className="text-gray-600">{hoveredData.rate.toFixed(1)} per 100k</div>}
-            </>
-          )}
-        </div>
-      )}
+      {hoveredData && (() => {
+        const pop = GEO_POPULATIONS[hoveredData.precinct];
+        const rankInfo = rateRanks[hoveredData.precinctNum];
+        return (
+          <div
+            className="absolute pointer-events-none bg-white border border-gray-200 shadow-xl rounded p-3 z-50 text-[11px]"
+            style={{ left: Math.min(mousePos.x + 12, width - 220), top: mousePos.y - 10, minWidth: 200 }}
+          >
+            <div className="font-black text-black text-[12px] mb-0.5">{hoveredData.precinct}</div>
+            {PRECINCT_NEIGHBORHOODS[hoveredData.precinct] && <div className="text-gray-500 mb-2">{PRECINCT_NEIGHBORHOODS[hoveredData.precinct]}</div>}
+            {hoveredData.isTourist ? (
+              <div className="text-gray-500 italic">Tourist/commercial hub — rates not comparable</div>
+            ) : (
+              <>
+                <div className="font-bold text-black">{hoveredData.count.toLocaleString()} incidents</div>
+                {hoveredData.rate != null && <div className="text-gray-600">{hoveredData.rate.toFixed(1)} per 100k{rankInfo ? ` · Rank ${rankInfo.rank} of ${rankInfo.total}` : ''}</div>}
+                {hoveredData.pctChange != null && (
+                  <div className="font-medium mt-1" style={{ color: hoveredData.pctChange > 0 ? '#c0392b' : hoveredData.pctChange < 0 ? '#27ae60' : '#333' }}>
+                    {hoveredData.pctChange > 0 ? '+' : ''}{hoveredData.pctChange.toFixed(1)}% vs last year ({hoveredData.priorCount?.toLocaleString() ?? '?'} prior)
+                  </div>
+                )}
+                {pop && <div className="text-gray-400 mt-1">Pop. {pop.toLocaleString()}</div>}
+              </>
+            )}
+          </div>
+        );
+      })()}
       {/* Legend */}
       <div className="flex items-center gap-2 mt-3 text-[10px] text-gray-500">
         {mapMode === 'change' ? (
@@ -644,17 +734,19 @@ const DivergingBarChart = ({ data }) => {
   const scaleMax = Math.max(10, maxAbsPct);
   const rowHeight = 34;
   const totalHeight = validData.length * rowHeight + 16;
-  const VIEWBOX_WIDTH = 540;
-  const CENTER_X = 270;
-  const MAX_BAR_WIDTH = 180;
+  const NAME_COL = 140;
+  const BAR_AREA = 180;
+  const CENTER_X = NAME_COL + BAR_AREA;
+  const VIEWBOX_WIDTH = CENTER_X + BAR_AREA + 60;
+  const MAX_BAR_WIDTH = BAR_AREA - 10;
   return (
     <div className="w-full font-sans">
       <div className="flex justify-between text-[10px] font-black uppercase tracking-widest border-b pb-2 mb-3 text-gray-400">
         <span>Trajectory (% Change vs Prior Yr)</span>
       </div>
       <svg viewBox={`0 0 ${VIEWBOX_WIDTH} ${totalHeight}`} className="w-full h-auto">
-        <rect x={CENTER_X} y="0" width={CENTER_X + MAX_BAR_WIDTH} height={totalHeight} fill="#fff7ed" fillOpacity="0.35" />
-        <rect x="0" y="0" width={CENTER_X} height={totalHeight} fill="#f0fdf4" fillOpacity="0.4" />
+        <rect x={CENTER_X} y="0" width={BAR_AREA + 60} height={totalHeight} fill="#fff7ed" fillOpacity="0.35" />
+        <rect x={NAME_COL} y="0" width={BAR_AREA} height={totalHeight} fill="#f0fdf4" fillOpacity="0.4" />
         <line x1={CENTER_X} y1="0" x2={CENTER_X} y2={totalHeight} stroke="#d1d5db" strokeWidth="1" />
         {validData.map((row, i) => {
           const y = i * rowHeight + 16;
@@ -662,11 +754,19 @@ const DivergingBarChart = ({ data }) => {
           const isSmallN = row.prior < VOLATILITY_THRESHOLD;
           const barWidth = (Math.abs(row.pct) / scaleMax) * MAX_BAR_WIDTH;
           const textColor = isIncrease ? VC.orange : VC.green;
+          const labelOutside = barWidth < 36;
+          const labelX = isIncrease
+            ? (labelOutside ? CENTER_X + barWidth + 6 : CENTER_X + barWidth - 6)
+            : (labelOutside ? CENTER_X - barWidth - 6 : CENTER_X - barWidth + 6);
+          const labelAnchor = isIncrease
+            ? (labelOutside ? "start" : "end")
+            : (labelOutside ? "end" : "start");
+          const labelFill = labelOutside ? textColor : '#ffffff';
           return (
             <g key={row.name}>
-              <text x="0" y={y + 5} fontSize="13" fontWeight="bold" fill={VC.black} opacity={isSmallN ? 0.5 : 1}>{row.name}{isSmallN ? '*' : ''}</text>
+              <text x={NAME_COL - 8} y={y + 5} textAnchor="end" fontSize="13" fontWeight="bold" fill={VC.black} opacity={isSmallN ? 0.5 : 1}>{row.name}{isSmallN ? '*' : ''}</text>
               <rect x={isIncrease ? CENTER_X : CENTER_X - barWidth} y={y - 9} width={barWidth} height="20" fill={textColor} fillOpacity={isSmallN ? 0.3 : 1} rx="3" />
-              <text x={isIncrease ? CENTER_X + barWidth + 8 : CENTER_X - barWidth - 8} y={y + 5} textAnchor={isIncrease ? "start" : "end"} fontSize="12" fontWeight="bold" fill={textColor} opacity={isSmallN ? 0.5 : 1}>{formatPct(row.pct)}</text>
+              <text x={labelX} y={y + 5} textAnchor={labelAnchor} fontSize="12" fontWeight="bold" fill={labelFill} opacity={isSmallN ? 0.5 : 1}>{formatPct(row.pct)}</text>
             </g>
           );
         })}
@@ -818,7 +918,14 @@ PRECINCT: ${JSON.stringify(PC)}
     setError('');
 
     const dataContext = buildContext();
-    const systemPrompt = `You are a concise, plain-language crime data analyst for Vital City. You have access to BOTH current weekly/YTD CompStat data AND 30-year historical datasets (1993-2025). Answer directly and precisely — 2 to 4 sentences maximum. Cite specific numbers. When comparing precincts, use per-capita rates (per 100k residents). Never use bullet points or headers.`;
+    const systemPrompt = `You are a concise, plain-language crime data analyst. You have access to BOTH current weekly/YTD CompStat data AND 30-year historical datasets (1993-2025). Answer directly and precisely — 2 to 4 sentences maximum. Cite specific numbers. When comparing precincts, use per-capita rates (per 100k residents). Never use bullet points or headers.
+
+CRITICAL DATA RULES — violating these produces dangerous misinformation:
+1. Each offense line shows: "Crime: X incidents (Y% vs prior year)". A NEGATIVE percentage means that crime is DOWN. A POSITIVE percentage means it is UP. Always check the sign before stating direction.
+2. The first number (e.g. "52 incidents") is the TOTAL COUNT for the period, NOT the change. Never describe a count as an increase. The change is the percentage in parentheses.
+3. When asked "what is going up" or "what is rising", list ONLY offenses with a POSITIVE percentage. When asked "what is going down" or "falling", list ONLY offenses with a NEGATIVE percentage.
+4. Murder is frequently misread. Always double-check: if murder shows a negative percentage, murder is DOWN, period. State the count AND the direction clearly.
+5. Never editorialize about which trends are "concerning" or "positive." Present the data and let the reader draw conclusions.`;
 
     const messages = [];
     history.forEach(h => {
@@ -947,6 +1054,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showHelp, setShowHelp] = useState(false);
   const [fetchError, setFetchError] = useState(false);
+  const [rtciData, setRtciData] = useState(null);
 
   // Map & AI summary state
   const [mapCrime, setMapCrime] = useState('all');
@@ -973,6 +1081,21 @@ export default function App() {
   }, []);
 
   useEffect(() => { loadReport(); }, [loadReport]);
+
+  // Fetch RTCI city comparison data
+  useEffect(() => {
+    fetch(RTCI_CSV_URL)
+      .then(r => r.ok ? r.text() : Promise.reject('fetch failed'))
+      .then(csv => {
+        const parsed = parseRTCIcsv(csv);
+        if (parsed) setRtciData(parsed);
+      })
+      .catch(() => {
+        const fallbackMap = {};
+        RTCI_FALLBACK.forEach(c => { fallbackMap[c.city] = c; });
+        setRtciData({ cities: fallbackMap, period: RTCI_FALLBACK_PERIOD, updated: RTCI_FALLBACK_UPDATED });
+      });
+  }, []);
 
   const handleLocateUser = () => {
     if (!navigator.geolocation) { setLocateMsg("Location not supported"); return; }
@@ -1277,7 +1400,7 @@ export default function App() {
             <div className="lg:col-span-1 space-y-4">
                <div className="text-[#ff7c53] text-[10px] font-black uppercase tracking-widest">Macro Volume</div>
                <h2 className="text-2xl font-black leading-snug">The Great Decline & The Modern Rebound</h2>
-               <p className="text-gray-600 font-serif text-[15px] leading-relaxed">From 1993 to 2019, major index crime collapsed. But the decline wasn't uniform. Violent crime leveled off around 2010, while property crime continued to fall. Since 2019, both have trended upward, with violent crime reaching levels not seen since the early 2000s.</p>
+               <p className="text-gray-600 font-serif text-[15px] leading-relaxed">From 1993 to 2019, major index crime collapsed. But the decline wasn't uniform. Violent crime leveled off around 2010, while property crime continued to fall. A post-2019 surge pushed violent crime upward through 2024, but murder has fallen every year since its 2021 spike and the broader violent index has begun declining.</p>
             </div>
             <div className="lg:col-span-2 h-[350px]">
                <ResponsiveContainer width="100%" height="100%">
@@ -1322,7 +1445,7 @@ export default function App() {
              <div className="max-w-3xl">
                <div className="text-[#394882] text-[10px] font-black uppercase tracking-widest">Divergence</div>
                <h2 className="text-2xl font-black leading-snug mb-3">Seven Crimes, Seven Trajectories</h2>
-               <p className="text-gray-600 font-serif text-[15px] leading-relaxed">If we index all crimes to their 1993 levels (where 1993 = 100), the divergence is stark. Property crimes like auto theft collapsed by nearly 90%. Murder fell 84%. But felony assault dropped only 27% at its lowest point, and has now rebounded aggressively to become the statistical outlier.</p>
+               <p className="text-gray-600 font-serif text-[15px] leading-relaxed">If we index all crimes to their 1993 levels (where 1993 = 100), the divergence is stark. Property crimes like auto theft collapsed by nearly 90%. Murder fell 84%. But felony assault dropped only 27% at its lowest point and has since climbed back to become the statistical outlier, plateauing near its pre-decline levels.</p>
              </div>
              <div className="h-[450px] w-full pt-4">
                 <ResponsiveContainer width="100%" height="100%">
@@ -1344,7 +1467,7 @@ export default function App() {
                <div className="text-[#050507] text-[10px] font-black uppercase tracking-widest">Classification Shift</div>
                <h2 className="text-2xl font-black leading-snug">The Assault Anomaly</h2>
                <p className="text-gray-600 font-serif text-[15px] leading-relaxed mb-4">While felony assault dominates headlines, misdemeanor assault outnumbers it 1.6 to 1. In 2015, misdemeanor assaults dropped 21% overnight while felonies didn't budge—a clear indicator of classification changes rather than behavioral shifts.</p>
-               <p className="text-gray-600 font-serif text-[15px] leading-relaxed">Since 2020, both categories have begun rising in lockstep for the first time in the dataset, suggesting a genuine increase in violent contact rather than just administrative drift.</p>
+               <p className="text-gray-600 font-serif text-[15px] leading-relaxed">From 2020 to 2024, both categories rose in lockstep for the first time in the dataset, suggesting a genuine increase in violent contact rather than just administrative drift. That parallel rise has since leveled off, with misdemeanor assaults declining in 2025.</p>
             </div>
             <div className="h-[350px]">
                <ResponsiveContainer width="100%" height="100%">
@@ -1626,7 +1749,7 @@ export default function App() {
           </section>
         )}
 
-        {activeGeo === 'citywide' && <CityComparisonWidget />}
+        {activeGeo === 'citywide' && <CityComparisonWidget rtciData={rtciData} />}
 
         <QueryBox
           parsedData={parsedData}
