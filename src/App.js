@@ -609,6 +609,8 @@ const TransitCrimeBox = ({ rawData }) => {
       .catch(() => { setBreakdownErr(true); setBreakdownLoading(false); });
   }, []);
 
+  const [sortBy, setSortBy] = useState('volume'); // volume | change | delta | name
+
   if (!transit) return null;
 
   const period = cw?.report_period || {};
@@ -623,73 +625,83 @@ const TransitCrimeBox = ({ rawData }) => {
   const wtd = transit.week_to_date || {};
   const m28 = transit.twenty_eight_day || {};
   const hist = transit.historical || {};
-  const ytdDiff = (ytd.current_year ?? 0) - (ytd.prior_year ?? 0);
 
-  const Row = ({ label, cur, prior, pct, sub }) => (
-    <div className="flex-1 min-w-[140px]">
-      <div className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">{label}</div>
-      <div className="flex items-baseline gap-2">
-        <span className="text-[22px] font-black text-black tabular-nums leading-none">{cur != null ? cur.toLocaleString() : '—'}</span>
-        <span className="text-[12px] font-bold tabular-nums" style={{ color: pctColor(pct) }}>{fmtPct(pct)}</span>
-      </div>
-      <div className="text-[10px] text-gray-500 mt-1">vs {prior != null ? prior.toLocaleString() : '—'} prior {sub}</div>
-    </div>
+  // Sort the offense rows
+  const rowsAll = (breakdown?.rows || []).filter(r => r.cur > 0 || r.prior > 0);
+  const sorted = [...rowsAll].sort((a, b) => {
+    if (sortBy === 'volume') return b.cur - a.cur;
+    if (sortBy === 'change') return (b.pct || 0) - (a.pct || 0);
+    if (sortBy === 'delta') return b.diff - a.diff;
+    if (sortBy === 'name') return a.label.localeCompare(b.label);
+    return 0;
+  });
+  const maxVal = sorted.reduce((m, r) => Math.max(m, r.cur, r.prior), 1);
+
+  const SortHeader = ({ field, children, align = 'right' }) => (
+    <button
+      onClick={() => setSortBy(field)}
+      className={`text-[9px] font-black uppercase tracking-widest transition-colors ${sortBy === field ? 'text-black' : 'text-gray-400 hover:text-gray-700'} ${align === 'right' ? 'text-right' : 'text-left'}`}
+    >
+      {children}{sortBy === field ? ' ↓' : ''}
+    </button>
   );
-
-  const topRows = breakdown?.rows?.filter(r => r.cur > 0 || r.prior > 0).slice(0, 10) || [];
-  const maxVal = topRows.reduce((m, r) => Math.max(m, r.cur, r.prior), 1);
 
   return (
     <section className="mb-10 p-5 bg-white rounded-sm border-l-4 border-gray-900 border-t border-r border-b border-gray-200">
-      <div className="flex items-start justify-between mb-4 gap-3">
-        <div>
+      {/* Header with live CompStat + annual totals side-by-side */}
+      <div className="flex items-start justify-between mb-4 gap-3 flex-wrap">
+        <div className="flex-1 min-w-[220px]">
           <h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">Transit System · Major Felony Index</h3>
           <p className="text-[13px] font-serif text-gray-600 mt-0.5">
-            Total major index offenses recorded on the NYC subway and bus system.
+            Offenses recorded on the NYC subway and bus system, by type.
           </p>
         </div>
-        <div className="text-right flex-shrink-0">
-          <div className="text-[9px] font-black uppercase tracking-widest text-gray-400">YTD Δ</div>
-          <div className="text-[14px] font-black tabular-nums" style={{ color: pctColor(ytd.pct_change) }}>
-            {ytdDiff > 0 ? '+' : ''}{ytdDiff.toLocaleString()}
-          </div>
-        </div>
       </div>
 
-      <div className="flex flex-wrap gap-6 pb-4 border-b border-gray-100">
-        <Row label="Year to date" cur={ytd.current_year} prior={ytd.prior_year} pct={ytd.pct_change} sub="YTD" />
-        <Row label="Last 28 days" cur={m28.current_year} prior={m28.prior_year} pct={m28.pct_change} sub="period" />
-        <Row label="This week" cur={wtd.current_year} prior={wtd.prior_year} pct={wtd.pct_change} sub="week" />
+      {/* Live CompStat summary stripe — single row, minimal */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pb-3 mb-4 border-b border-gray-100 text-[11px]">
+        <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">CompStat live</span>
+        <span>
+          <span className="text-[10px] text-gray-400">YTD </span>
+          <strong className="tabular-nums text-black">{ytd.current_year?.toLocaleString() ?? '—'}</strong>
+          <span className="ml-1 tabular-nums" style={{ color: pctColor(ytd.pct_change) }}>{fmtPct(ytd.pct_change)}</span>
+          <span className="text-gray-400"> vs {ytd.prior_year?.toLocaleString() ?? '—'}</span>
+        </span>
+        <span>
+          <span className="text-[10px] text-gray-400">28d </span>
+          <strong className="tabular-nums text-black">{m28.current_year?.toLocaleString() ?? '—'}</strong>
+          <span className="ml-1 tabular-nums" style={{ color: pctColor(m28.pct_change) }}>{fmtPct(m28.pct_change)}</span>
+        </span>
+        <span>
+          <span className="text-[10px] text-gray-400">Wk </span>
+          <strong className="tabular-nums text-black">{wtd.current_year?.toLocaleString() ?? '—'}</strong>
+          <span className="ml-1 tabular-nums" style={{ color: pctColor(wtd.pct_change) }}>{fmtPct(wtd.pct_change)}</span>
+        </span>
+        {hist['2_yr_pct'] != null && (
+          <span className="text-gray-500">vs 2 yr ago <strong className="tabular-nums" style={{ color: pctColor(hist['2_yr_pct']) }}>{fmtPct(hist['2_yr_pct'])}</strong></span>
+        )}
+        {hist['14_yr_pct'] != null && (
+          <span className="text-gray-500">vs 14 yr ago <strong className="tabular-nums" style={{ color: pctColor(hist['14_yr_pct']) }}>{fmtPct(hist['14_yr_pct'])}</strong></span>
+        )}
+        {housing?.year_to_date?.pct_change != null && (
+          <span className="pl-4 border-l border-gray-200 text-gray-500">
+            Housing YTD <strong className="tabular-nums text-black">{housing.year_to_date.current_year?.toLocaleString()}</strong>
+            <span className="ml-1 tabular-nums" style={{ color: pctColor(housing.year_to_date.pct_change) }}>{fmtPct(housing.year_to_date.pct_change)}</span>
+          </span>
+        )}
+        <span className="ml-auto text-[10px] text-gray-400">Week ending {period.week_end || '?'}</span>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 mt-3 pb-3 text-[11px] border-b border-gray-100">
-        <div className="flex flex-wrap gap-4 text-gray-500">
-          {hist['2_yr_pct'] != null && (
-            <span>vs 2 yrs ago: <strong className="tabular-nums" style={{ color: pctColor(hist['2_yr_pct']) }}>{fmtPct(hist['2_yr_pct'])}</strong></span>
-          )}
-          {hist['14_yr_pct'] != null && (
-            <span>vs 14 yrs ago: <strong className="tabular-nums" style={{ color: pctColor(hist['14_yr_pct']) }}>{fmtPct(hist['14_yr_pct'])}</strong></span>
-          )}
-          {housing?.year_to_date?.pct_change != null && (
-            <span className="pl-4 border-l border-gray-200">
-              Housing YTD: <strong className="tabular-nums text-black">{housing.year_to_date.current_year?.toLocaleString()}</strong>
-              <span className="ml-1 tabular-nums" style={{ color: pctColor(housing.year_to_date.pct_change) }}>{fmtPct(housing.year_to_date.pct_change)}</span>
-            </span>
-          )}
-        </div>
-        <div className="text-[10px] text-gray-400">CompStat week ending {period.week_end || '?'}</div>
-      </div>
-
-      {/* Per-offense annual breakdown from NYC Open Data */}
-      <div className="mt-4">
-        <div className="flex items-baseline justify-between mb-3">
+      {/* Unified offense-type table */}
+      <div>
+        <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
           <div>
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">By offense type · {breakdown ? `${breakdown.year} vs ${breakdown.priorYear}` : 'Loading…'}</h4>
-            <p className="text-[11px] text-gray-500 italic mt-0.5">Full-year totals from NYPD complaint-level data (Open Data). Updates annually — more granular than the weekly CompStat figure above.</p>
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">By offense type{breakdown ? ` · ${breakdown.year} vs ${breakdown.priorYear}` : ''}</h4>
+            <p className="text-[11px] text-gray-500 italic mt-0.5">Full-year totals from NYPD complaint-level data (NYC Open Data, transit-district filter). More granular than the CompStat aggregate above — the two won't match exactly because they use different counting rules.</p>
           </div>
           {breakdown && (
             <div className="text-right">
-              <div className="text-[9px] font-black uppercase tracking-widest text-gray-400">Total felonies</div>
+              <div className="text-[9px] font-black uppercase tracking-widest text-gray-400">Annual total</div>
               <div className="text-[14px] font-black tabular-nums text-black">{breakdown.totalCur.toLocaleString()}</div>
               <div className="text-[10px] tabular-nums" style={{ color: pctColor(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100) }}>
                 {fmtPct(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100)} vs {breakdown.totalPri.toLocaleString()}
@@ -701,10 +713,23 @@ const TransitCrimeBox = ({ rawData }) => {
         {breakdownLoading && <div className="text-[11px] text-gray-400 italic py-4">Fetching per-offense breakdown from NYC Open Data…</div>}
         {breakdownErr && <div className="text-[11px] text-gray-400 italic py-4">Per-offense breakdown unavailable — NYC Open Data could not be reached.</div>}
         {breakdown && (
-          <div className="space-y-1">
-            {topRows.map(r => {
+          <div>
+            {/* Sortable header */}
+            <div className="flex items-center gap-3 pb-2 mb-1 border-b border-gray-200">
+              <SortHeader field="name" align="left"><span className="w-32 inline-block text-left">Offense</span></SortHeader>
+              <div className="flex-1 min-w-[120px] flex items-center gap-3 text-[9px] font-bold uppercase tracking-widest text-gray-400">
+                <span className="flex items-center gap-1"><span className="inline-block w-3 h-[4px] bg-gray-900 rounded-sm" /> {breakdown.year}</span>
+                <span className="flex items-center gap-1"><span className="inline-block w-3 h-[4px] bg-gray-300 rounded-sm" /> {breakdown.priorYear}</span>
+              </div>
+              <span className="w-14 text-right"><SortHeader field="volume">{breakdown.year}</SortHeader></span>
+              <span className="w-14 text-right text-[9px] font-black uppercase tracking-widest text-gray-400">{breakdown.priorYear}</span>
+              <span className="w-16 text-right"><SortHeader field="delta">Δ vol</SortHeader></span>
+              <span className="w-14 text-right"><SortHeader field="change">Δ %</SortHeader></span>
+            </div>
+            {sorted.map(r => {
               const curW = (r.cur / maxVal) * 100;
               const priW = (r.prior / maxVal) * 100;
+              const deltaStr = `${r.diff > 0 ? '+' : ''}${r.diff.toLocaleString()}`;
               return (
                 <div key={r.name} className="flex items-center gap-3 py-1 text-[11px]">
                   <span className="w-32 flex-shrink-0 font-bold text-gray-800 truncate" title={r.label}>{r.label}</span>
@@ -716,27 +741,18 @@ const TransitCrimeBox = ({ rawData }) => {
                   </div>
                   <span className="w-14 text-right tabular-nums font-bold text-black">{r.cur.toLocaleString()}</span>
                   <span className="w-14 text-right tabular-nums text-gray-400">{r.prior.toLocaleString()}</span>
+                  <span className="w-16 text-right tabular-nums font-bold" style={{ color: pctColor(r.diff) }}>{deltaStr}</span>
                   <span className="w-14 text-right tabular-nums font-bold" style={{ color: pctColor(r.pct) }}>{fmtPct(r.pct)}</span>
                 </div>
               );
             })}
-            <div className="flex items-center gap-3 pt-2 mt-1 text-[9px] font-bold uppercase tracking-widest text-gray-400 border-t border-gray-100">
-              <span className="w-32">Offense</span>
-              <div className="flex-1 min-w-[120px] flex items-center gap-3">
-                <span className="flex items-center gap-1"><span className="inline-block w-3 h-[4px] bg-gray-900 rounded-sm" /> {breakdown.year}</span>
-                <span className="flex items-center gap-1"><span className="inline-block w-3 h-[4px] bg-gray-300 rounded-sm" /> {breakdown.priorYear}</span>
-              </div>
-              <span className="w-14 text-right">{breakdown.year}</span>
-              <span className="w-14 text-right">{breakdown.priorYear}</span>
-              <span className="w-14 text-right">Δ</span>
-            </div>
           </div>
         )}
       </div>
 
       <p className="text-[10px] text-gray-400 mt-4 italic leading-snug">
-        Top block: NYPD CompStat weekly aggregate (subway + bus, all major felonies combined) — updates every Monday.
-        Lower block: NYC Open Data complaint-level extract filtered to incidents with a transit-district code — updates on the city's annual schedule, so the comparison year is the most recent complete calendar year.
+        CompStat live = weekly NYPD CompStat feed for Transit Bureau (all major felonies combined, through week ending {period.week_end || '?'}).
+        By-offense totals = NYC Open Data complaint-level extract filtered to records with a transit-district code, most recent complete calendar year vs prior. The two sources use different counting rules, so the aggregates will not match exactly.
       </p>
     </section>
   );
