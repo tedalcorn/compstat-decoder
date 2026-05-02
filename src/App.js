@@ -575,38 +575,63 @@ const TransitCrimeBox = ({ rawData }) => {
 
   useEffect(() => {
     const fetchOne = (url) => fetch(url).then(r => r.ok ? r.json() : Promise.reject(r.status));
-    // Current year (5uac-w243) covers most recent complete year; historic (qgea-i56i) covers 2006+
-    const curUrl = "https://data.cityofnewyork.us/resource/5uac-w243.json?" +
-      "$select=ofns_desc,count(*) AS n&$where=transit_district IS NOT NULL AND law_cat_cd='FELONY'&$group=ofns_desc&$order=n DESC&$limit=50";
+    // Use the latest available date in the current dataset to define the YTD window,
+    // then query the SAME calendar window in the prior year so comparisons are apples-to-apples.
+    // Current dataset (5uac-w243) holds the active year; historic (qgea-i56i) holds 2006-2024 (or whichever years are now closed).
     const maxUrl = "https://data.cityofnewyork.us/resource/5uac-w243.json?$select=max(rpt_dt) AS max,min(rpt_dt) AS min";
-    Promise.all([fetchOne(curUrl), fetchOne(maxUrl)])
-      .then(([rows, meta]) => {
-        const maxDate = meta?.[0]?.max ? new Date(meta[0].max) : null;
-        const year = maxDate ? maxDate.getFullYear() : 2025;
-        const priorYear = year - 1;
-        const priorUrl = "https://data.cityofnewyork.us/resource/qgea-i56i.json?" +
-          `$select=ofns_desc,count(*) AS n&$where=transit_district IS NOT NULL AND law_cat_cd='FELONY' AND rpt_dt>='${priorYear}-01-01T00:00:00' AND rpt_dt<'${year}-01-01T00:00:00'&$group=ofns_desc&$order=n DESC&$limit=50`;
-        return fetchOne(priorUrl).then(prior => {
-          const curMap = {};
-          rows.forEach(r => { curMap[r.ofns_desc] = parseInt(r.n, 10) || 0; });
-          const priMap = {};
-          prior.forEach(r => { priMap[r.ofns_desc] = parseInt(r.n, 10) || 0; });
-          const names = new Set([...Object.keys(curMap), ...Object.keys(priMap)]);
-          const combined = [];
-          names.forEach(n => {
-            const cur = curMap[n] || 0;
-            const pri = priMap[n] || 0;
-            const pct = pri > 0 ? ((cur - pri) / pri) * 100 : (cur > 0 ? 100 : 0);
-            combined.push({ name: n, label: TRANSIT_OFFENSE_LABELS[n] || n, cur, prior: pri, pct, diff: cur - pri });
-          });
-          combined.sort((a, b) => b.cur - a.cur);
-          const totalCur = combined.reduce((s, r) => s + r.cur, 0);
-          const totalPri = combined.reduce((s, r) => s + r.prior, 0);
-          setBreakdown({ year, priorYear, rows: combined, totalCur, totalPri });
-          setBreakdownLoading(false);
+    fetchOne(maxUrl).then(meta => {
+      const maxDate = meta?.[0]?.max ? new Date(meta[0].max) : new Date();
+      const minDate = meta?.[0]?.min ? new Date(meta[0].min) : new Date(maxDate.getFullYear(), 0, 1);
+      let year = maxDate.getFullYear();
+      let monthsCovered = (maxDate.getMonth() - minDate.getMonth() + 1);
+
+      // If the current year only has a thin slice (<3 months), fall back one year so we compare two more-complete YTD windows.
+      if (monthsCovered < 3 && minDate.getFullYear() === year) {
+        year = year - 1;
+      }
+
+      const priorYear = year - 1;
+      // YTD cutoff date — use maxDate's month/day if it falls in `year`, else Dec 31
+      const cutoffMonth = (maxDate.getFullYear() === year) ? maxDate.getMonth() : 11;
+      const cutoffDay = (maxDate.getFullYear() === year) ? maxDate.getDate() : 31;
+      const monthStr = String(cutoffMonth + 1).padStart(2, '0');
+      const dayStr = String(cutoffDay).padStart(2, '0');
+      const periodLabel = monthsCovered >= 11 || maxDate.getFullYear() !== year ? 'Full year' : `Jan 1 – ${maxDate.toLocaleString('en-US', { month: 'short', day: 'numeric' })}`;
+
+      // Pick the right dataset for each year. 5uac-w243 may contain both years; qgea-i56i has older years.
+      const buildQuery = (dataset, fromY, toY, m, d) => `https://data.cityofnewyork.us/resource/${dataset}.json?` +
+        `$select=ofns_desc,count(*) AS n&$where=transit_district IS NOT NULL AND law_cat_cd='FELONY' ` +
+        `AND rpt_dt>='${fromY}-01-01T00:00:00' AND rpt_dt<='${toY}-${m}-${d}T23:59:59'` +
+        `&$group=ofns_desc&$order=n DESC&$limit=50`;
+
+      // Try current year from 5uac-w243; prior year YTD from whichever dataset has it (try 5uac first, fall back to qgea)
+      const curUrl = buildQuery('5uac-w243', year, year, monthStr, dayStr);
+      const priorUrlA = buildQuery('5uac-w243', priorYear, priorYear, monthStr, dayStr);
+      const priorUrlB = buildQuery('qgea-i56i', priorYear, priorYear, monthStr, dayStr);
+
+      Promise.all([
+        fetchOne(curUrl),
+        fetchOne(priorUrlA).then(rows => rows.length > 0 ? rows : fetchOne(priorUrlB)).catch(() => fetchOne(priorUrlB)),
+      ]).then(([rows, prior]) => {
+        const curMap = {};
+        rows.forEach(r => { curMap[r.ofns_desc] = parseInt(r.n, 10) || 0; });
+        const priMap = {};
+        prior.forEach(r => { priMap[r.ofns_desc] = parseInt(r.n, 10) || 0; });
+        const names = new Set([...Object.keys(curMap), ...Object.keys(priMap)]);
+        const combined = [];
+        names.forEach(n => {
+          const cur = curMap[n] || 0;
+          const pri = priMap[n] || 0;
+          const pct = pri > 0 ? ((cur - pri) / pri) * 100 : (cur > 0 ? 100 : 0);
+          combined.push({ name: n, label: TRANSIT_OFFENSE_LABELS[n] || n, cur, prior: pri, pct, diff: cur - pri });
         });
-      })
-      .catch(() => { setBreakdownErr(true); setBreakdownLoading(false); });
+        combined.sort((a, b) => b.cur - a.cur);
+        const totalCur = combined.reduce((s, r) => s + r.cur, 0);
+        const totalPri = combined.reduce((s, r) => s + r.prior, 0);
+        setBreakdown({ year, priorYear, rows: combined, totalCur, totalPri, periodLabel });
+        setBreakdownLoading(false);
+      }).catch(() => { setBreakdownErr(true); setBreakdownLoading(false); });
+    }).catch(() => { setBreakdownErr(true); setBreakdownLoading(false); });
   }, []);
 
   const [sortBy, setSortBy] = useState('volume'); // volume | change | delta | name
@@ -698,15 +723,15 @@ const TransitCrimeBox = ({ rawData }) => {
       </div>
 
       {/* Unified offense-type table */}
-      <div>
+      <div className="max-w-3xl">
         <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
           <div>
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">By offense type{breakdown ? ` · ${breakdown.year} vs ${breakdown.priorYear}` : ''}</h4>
-            <p className="text-[11px] text-gray-500 italic mt-0.5">Full-year totals from NYPD complaint-level data (NYC Open Data, transit-district filter). More granular than the CompStat aggregate above — the two won't match exactly because they use different counting rules.</p>
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">By offense type{breakdown ? ` · ${breakdown.year} vs ${breakdown.priorYear}${breakdown.periodLabel && breakdown.periodLabel !== 'Full year' ? ` (${breakdown.periodLabel})` : ''}` : ''}</h4>
+            <p className="text-[11px] text-gray-500 italic mt-0.5">{breakdown?.periodLabel === 'Full year' ? 'Full-year totals' : 'Year-to-date totals through the same calendar day in each year'} from NYPD complaint-level data (NYC Open Data, transit-district filter). Different counting rules from CompStat above, so totals won't match exactly.</p>
           </div>
           {breakdown && (
             <div className="text-right">
-              <div className="text-[9px] font-black uppercase tracking-widest text-gray-400">Annual total</div>
+              <div className="text-[9px] font-black uppercase tracking-widest text-gray-400">{breakdown.periodLabel === 'Full year' ? 'Annual total' : 'Period total'}</div>
               <div className="text-[14px] font-black tabular-nums text-black">{breakdown.totalCur.toLocaleString()}</div>
               <div className="text-[10px] tabular-nums" style={{ color: pctColor(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100) }}>
                 {fmtPct(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100)} vs {breakdown.totalPri.toLocaleString()}
