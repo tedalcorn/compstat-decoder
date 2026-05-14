@@ -273,6 +273,57 @@ const formatGeoName = (geo) => {
   if (PRECINCT_NEIGHBORHOODS[geo]) return `${geo} (${PRECINCT_NEIGHBORHOODS[geo]})`;
   return geo;
 };
+const formatPeriodDate = (iso) => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' });
+};
+
+const buildStorySummary = ({ parsedData, hotspots, activeTab }) => {
+  if (!parsedData || !parsedData.totals) return null;
+  const { totals, driver, period } = parsedData;
+  const isYTD = activeTab === 'ytd';
+  const endLabel = formatPeriodDate(period?.week_end);
+  const startLabel = formatPeriodDate(period?.week_start);
+  const timeframe = isYTD
+    ? (endLabel ? `Year-to-date through ${endLabel}` : 'Year-to-date')
+    : (startLabel && endLabel ? `For the week of ${startLabel}–${endLabel}` : 'This reporting week');
+
+  const mPct = typeof totals.mPct === 'number' ? totals.mPct : 0;
+  const direction = mPct > 0 ? 'rise' : mPct < 0 ? 'decline' : 'change';
+  const upDown = mPct > 0 ? 'up' : mPct < 0 ? 'down' : 'flat';
+  const pctAbs = Math.abs(mPct).toFixed(1);
+  const mCur = totals.mCur?.toLocaleString() ?? '—';
+
+  let sentence1;
+  if (driver && driver.name && Math.abs(driver.share) >= 5) {
+    const shareStr = `${Math.round(Math.abs(driver.share))}%`;
+    sentence1 = `${timeframe}, major index offenses are ${upDown} ${pctAbs}% versus the same period last year (${mCur} total), with ${driver.name.toLowerCase()} accounting for ${shareStr} of the ${direction}.`;
+  } else {
+    sentence1 = `${timeframe}, major index offenses are ${upDown} ${pctAbs}% versus the same period last year (${mCur} total).`;
+  }
+
+  let sentence2 = null;
+  const spike = hotspots?.topPctSpike;
+  const drop = hotspots?.topPctDrop;
+  const murder = totals.murder;
+  const shootings = totals.shootingVic;
+
+  if (spike && typeof spike.pct === 'number' && spike.pct >= 25) {
+    sentence2 = `The sharpest local shift was ${spike.crime.toLowerCase()} in the ${toOrdinalPrecinct(spike.precinct)}, up ${spike.pct.toFixed(0)}%.`;
+  } else if (drop && typeof drop.pct === 'number' && drop.pct <= -25) {
+    sentence2 = `The sharpest local shift was ${drop.crime.toLowerCase()} in the ${toOrdinalPrecinct(drop.precinct)}, down ${Math.abs(drop.pct).toFixed(0)}%.`;
+  } else if (typeof murder === 'number' && typeof shootings === 'number' && (murder > 0 || shootings > 0)) {
+    sentence2 = `Murder stands at ${murder.toLocaleString()} and shooting victims at ${shootings.toLocaleString()} for the period.`;
+  } else if (hotspots?.inequality) {
+    const ineq = hotspots.inequality;
+    sentence2 = `The ${ineq.topCount} highest-crime precincts (${formatPop(ineq.topPop)} residents) match the violent crime total of the ${ineq.bottomCount} safest (${formatPop(ineq.bottomPop)} residents).`;
+  }
+
+  return sentence2 ? `${sentence1} ${sentence2}` : sentence1;
+};
+
 const toOrdinalPrecinct = (n) => {
   const num = parseInt(n, 10);
   if ([11, 12, 13].includes(num % 100)) return num + "th Precinct";
@@ -320,9 +371,6 @@ const SearchIcon = (p) => <Icon {...p}><circle cx="11" cy="11" r="8"/><line x1="
 const Navigation = (p) => <Icon {...p}><polygon points="3 11 22 2 13 21 11 13 3 11"/></Icon>;
 const AlertTriangle = (p) => <Icon {...p}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></Icon>;
 const ShieldCheck = (p) => <Icon {...p}><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></Icon>;
-const Sparkles = (p) => <Icon {...p}><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></Icon>;
-const Send = (p) => <Icon {...p}><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></Icon>;
-const X = (p) => <Icon {...p}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>;
 const ArrowLeft = (p) => <Icon {...p}><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></Icon>;
 
 /* ------------------------------------------------------------------ */
@@ -1210,228 +1258,6 @@ const UnifiedMagnitudeChart = ({ data, isTourist, citywideRates, activeGeo }) =>
   );
 };
 
-/* ------------------------------------------------------------------ */
-/* AI QUERY BOX                                                       */
-/* ------------------------------------------------------------------ */
-const CITYWIDE_QUESTIONS = [
-  "How does this compare to the 1993 peak?",
-  "What is the 30-year trend for murder?",
-  "Which crimes correlate most strongly?",
-  "Is the 78th Precinct safer than average?",
-];
-
-const LOCAL_QUESTIONS = [
-  "Is this area safer or more dangerous than average?",
-  "What's the biggest story here?",
-  "Which crimes are rising fastest in this precinct?",
-  "How does this compare to citywide trends?",
-];
-
-const QueryBox = ({ parsedData, activeGeo, activeTab, period, rawData }) => {
-  const [query, setQuery] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [history, setHistory] = useState([]);
-
-  const suggestedQuestions = activeGeo === 'citywide' ? CITYWIDE_QUESTIONS : LOCAL_QUESTIONS;
-
-  useEffect(() => {
-    setQuery('');
-    setError('');
-    setHistory([]);
-  }, [activeGeo, activeTab]);
-
-  const buildContext = () => {
-    const { totals, all, driver, localAnomaly, localBrightSpot } = parsedData;
-    const periodStr = `${period?.week_start || ''} – ${period?.week_end || ''}`;
-    const timeLabel = activeTab === 'ytd' ? 'year-to-date' : 'week-to-date';
-    const geoLabel = activeGeo === 'citywide' ? 'Citywide (all of NYC)' : formatGeoName(activeGeo);
-
-    const offenseLines = all.map(o =>
-      `  ${o.name}: ${o.current.toLocaleString()} incidents (${formatPct(o.pct)} vs prior year${o.currentRate !== null ? `, ${o.currentRate.toFixed(1)}/100k residents` : ''})`
-    ).join('\n');
-
-    let precinctTable = '';
-    if (activeGeo === 'citywide' && rawData) {
-      const pctKeys = Object.keys(rawData).filter(k => k.includes('Precinct'));
-      if (pctKeys.length > 0) {
-        const lines = pctKeys.sort((a, b) => parseInt(a) - parseInt(b)).map(pct => {
-          const d = rawData[pct];
-          const pop = GEO_POPULATIONS[pct] || 0;
-          const hood = PRECINCT_NEIGHBORHOODS[pct] || '';
-          const felonies = d.seven_major_felonies || {};
-          const addl = d.additional_stats || {};
-          const crimes = { ...felonies, ...addl };
-          let totalCur = 0, totalPri = 0;
-          const crimeNums = Object.entries(crimes).map(([name, stats]) => {
-            const periodData = activeTab === 'ytd' ? stats?.year_to_date : stats?.week_to_date;
-            const cur = safeNum(periodData?.current_year);
-            const pri = safeNum(periodData?.prior_year);
-            const pctChg = periodData?.pct_change;
-            if (felonies[name]) { totalCur += cur; totalPri += pri; }
-            const chgStr = pctChg != null ? ` (${pctChg > 0 ? '+' : ''}${pctChg}%)` : '';
-            return `${name}:${cur} vs ${pri}${chgStr}`;
-          });
-          const totalChg = totalPri > 0 ? (((totalCur - totalPri) / totalPri) * 100).toFixed(1) : '?';
-          const rate = pop > 0 ? ((totalCur / pop) * 100000).toFixed(1) : '?';
-          return `  ${pct} (${hood}): ${crimeNums.join(', ')} | Total 7 major: ${totalCur} vs ${totalPri} (${totalChg}%) | ${rate}/100k | Pop ~${formatPop(pop)}`;
-        });
-        precinctTable = `\n\nPRECINCT-LEVEL DATA (${timeLabel}):\n${lines.join('\n')}`;
-      }
-    }
-
-    return `=== LIVE NYPD COMPSTAT DATA ===
-Geography: ${geoLabel}
-Timeframe: ${timeLabel} through ${periodStr}
-
-SUMMARY TOTALS:
-  Major index felonies: ${totals.mCur.toLocaleString()} (${formatPct(totals.mPct)} vs prior year's ${totals.mPri.toLocaleString()})
-  Violent share: ${((totals.vCur / (totals.mCur || 1)) * 100).toFixed(0)}%
-  Property share: ${((totals.pCur / (totals.mCur || 1)) * 100).toFixed(0)}%
-  Murders: ${totals.murder}
-
-ALL TRACKED OFFENSES:
-${offenseLines}
-
-${driver ? `PRIMARY DRIVER OF CHANGE: ${driver.name} accounts for ${driver.share.toFixed(0)}% of the overall shift` : ''}
-${localAnomaly ? `LOCAL ANOMALY: ${localAnomaly.name} rate (${localAnomaly.localRate.toFixed(1)}/100k) is ${localAnomaly.ratio.toFixed(1)}x the citywide average` : ''}
-${localBrightSpot ? `LOCAL BRIGHT SPOT: ${localBrightSpot.name} rate (${localBrightSpot.localRate.toFixed(1)}/100k) is ${((1 - localBrightSpot.ratio) * 100).toFixed(0)}% below citywide average` : ''}${precinctTable}
-
-=== HISTORICAL DATASETS FOR CONTEXT (1993-2025) ===
-If the user asks about historical context, refer to these reference arrays:
-CITYWIDE: ${JSON.stringify(CW)}
-PRECINCT: ${JSON.stringify(PC)}
-`;
-  };
-
-  const handleQuery = async (q) => {
-    const questionText = q || query;
-    if (!questionText.trim()) return;
-    
-    setQuery('');
-    setLoading(true);
-    setError('');
-
-    const dataContext = buildContext();
-    const systemPrompt = `You are a concise, plain-language crime data analyst. You have access to BOTH current weekly/YTD CompStat data AND 30-year historical datasets (1993-2025). Answer directly and precisely — 2 to 4 sentences maximum. Cite specific numbers. When comparing precincts, use per-capita rates (per 100k residents). Never use bullet points or headers.
-
-CRITICAL DATA RULES — violating these produces dangerous misinformation:
-1. Each offense line shows: "Crime: X incidents (Y% vs prior year)". A NEGATIVE percentage means that crime is DOWN. A POSITIVE percentage means it is UP. Always check the sign before stating direction.
-2. The first number (e.g. "52 incidents") is the TOTAL COUNT for the period, NOT the change. Never describe a count as an increase. The change is the percentage in parentheses.
-3. When asked "what is going up" or "what is rising", list ONLY offenses with a POSITIVE percentage. When asked "what is going down" or "falling", list ONLY offenses with a NEGATIVE percentage.
-4. Murder is frequently misread. Always double-check: if murder shows a negative percentage, murder is DOWN, period. State the count AND the direction clearly.
-5. Never editorialize about which trends are "concerning" or "positive." Present the data and let the reader draw conclusions.`;
-
-    const messages = [];
-    history.forEach(h => {
-      messages.push({ role: 'user', content: h.q });
-      messages.push({ role: 'assistant', content: h.a });
-    });
-    messages.push({
-      role: 'user',
-      content: messages.length === 0
-        ? `DATA:\n${dataContext}\n\nQUESTION: ${questionText}`
-        : questionText
-    });
-
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          max_tokens: 1000,
-          system: systemPrompt,
-          messages
-        })
-      });
-      if (!res.ok) throw new Error(`API returned ${res.status}`);
-      const data = await res.json();
-      const text = data?.content?.[0]?.text || '';
-      if (!text) throw new Error('Empty response');
-      setHistory(prev => [...prev, { q: questionText, a: text }]);
-    } catch (e) {
-      console.error(e);
-      setError('Unable to get a response. Try again in a moment.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleQuery(); }
-  };
-
-  return (
-    <section className="mb-10 pt-8 border-t border-gray-200">
-      <div className="flex items-center gap-2 mb-5">
-        <Sparkles size={14} className="text-gray-400" />
-        <span className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Ask About This Data</span>
-      </div>
-
-      {history.length > 0 && (
-        <div className="mb-4 space-y-4">
-          {history.map((h, i) => (
-            <div key={i} className="border border-gray-100 rounded bg-gray-50 px-5 py-4">
-              <p className="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">{h.q}</p>
-              <p className="font-serif text-[15px] leading-relaxed text-gray-700">{h.a}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {loading && (
-        <div className="border border-gray-200 rounded bg-gray-50 px-5 py-5 mb-4">
-          <p className="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-3">{query}</p>
-          <div className="flex items-center gap-3">
-            <div className="flex gap-1">
-              {[0,1,2].map(i => (
-                <span key={i} className="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block animate-bounce" style={{animationDelay: `${i * 0.15}s`}} />
-              ))}
-            </div>
-            <span className="text-[12px] text-gray-400 font-medium">Reading the data…</span>
-          </div>
-        </div>
-      )}
-
-      {error && !loading && (
-        <div className="border border-gray-200 rounded bg-gray-50 px-5 py-5 mb-4">
-          <p className="font-serif text-[15px] text-red-600">{error}</p>
-        </div>
-      )}
-
-      <div className="flex gap-2 mb-4">
-        <input
-          type="text"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={history.length > 0
-            ? "Ask a follow-up…"
-            : `Ask anything about ${activeGeo === 'citywide' ? 'citywide crime' : formatGeoName(activeGeo)} data…`
-          }
-          className="flex-1 text-[13px] font-medium py-3 px-4 rounded border border-gray-300 bg-white focus:outline-none focus:border-black transition-colors placeholder-gray-400"
-          disabled={loading}
-        />
-        <button onClick={() => handleQuery()} disabled={loading || !query.trim()} className="flex items-center gap-2 px-5 py-3 bg-black text-white text-[11px] font-black uppercase tracking-widest rounded disabled:opacity-30 hover:bg-gray-800 transition-colors">
-          <Send size={13} /> Ask
-        </button>
-        {history.length > 0 && (
-          <button onClick={() => { setQuery(''); setError(''); setHistory([]); }} className="flex items-center justify-center px-3 border border-gray-300 rounded bg-white hover:bg-gray-50 text-gray-500 hover:text-black transition-colors" title="Start over">
-            <X size={14} />
-          </button>
-        )}
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {suggestedQuestions.filter(q => !history.some(h => h.q === q)).slice(0, history.length > 0 ? 2 : 4).map(q => (
-            <button key={q} onClick={() => { handleQuery(q); }} disabled={loading} className="text-[11px] font-medium text-gray-600 border border-gray-200 rounded-full px-3 py-1.5 hover:border-black hover:text-black transition-colors bg-white disabled:opacity-40">
-              {q}
-            </button>
-          ))}
-      </div>
-    </section>
-  );
-};
 
 /* ------------------------------------------------------------------ */
 /* MAIN APP WITH VIEW ROUTING                                         */
@@ -1451,12 +1277,9 @@ export default function App() {
   const [fetchError, setFetchError] = useState(false);
   const [rtciData, setRtciData] = useState(null);
 
-  // Map & AI summary state
+  // Map state
   const [mapCrime, setMapCrime] = useState('all');
   const [mapMode, setMapMode] = useState('rate');
-  const [weeklySummary, setWeeklySummary] = useState('');
-  const [summaryLoading, setSummaryLoading] = useState(false);
-  const summaryDataRef = useRef(null);
 
   // Scatter plot state for Historic view
   const [xM, setXM] = useState('pov');
@@ -1666,57 +1489,6 @@ export default function App() {
       return { precinct: pct, precinctNum, rate: pop ? (count / pop) * 100000 : null, count, priorCount, pctChange, isTourist: TOURIST_PRECINCTS.includes(pct) };
     });
   }, [rawData, activeTab, mapCrime]);
-
-  // Story of the Week: auto-generate AI summary on data load (citywide only)
-  useEffect(() => {
-    if (activeGeo !== 'citywide') return;
-    const dataKey = JSON.stringify(parsedData.totals);
-    if (summaryDataRef.current === dataKey) return;
-    summaryDataRef.current = dataKey;
-    const run = async () => {
-      setSummaryLoading(true);
-      try {
-        const isYTD = activeTab === 'ytd';
-        const timeframe = isYTD
-          ? `YEAR-TO-DATE through ${parsedData.period?.week_end || 'latest reporting week'}, compared to the same period last year`
-          : `WEEK of ${parsedData.period?.week_start || '?'} to ${parsedData.period?.week_end || '?'}, compared to the same week last year`;
-        const ctx = [
-          `TIMEFRAME: ${timeframe}`,
-          `All numbers below refer to this exact timeframe unless otherwise noted.`,
-          ``,
-          `Total major index: ${parsedData.totals.mCur.toLocaleString()} (${parsedData.totals.mPct > 0 ? '+' : ''}${parsedData.totals.mPct.toFixed(1)}% vs same period prior year)`,
-          `Violent: ${parsedData.totals.vCur.toLocaleString()}, Property: ${parsedData.totals.pCur.toLocaleString()}`,
-          parsedData.driver ? `Primary driver: ${parsedData.driver.name} (${parsedData.driver.share.toFixed(0)}% of overall shift)` : '',
-          `Murder: ${parsedData.totals.murder}, Shooting victims: ${parsedData.totals.shootingVic}`,
-          hotspots?.topPctSpike ? `Biggest precinct spike: ${hotspots.topPctSpike.crime} in ${hotspots.topPctSpike.precinct} (+${hotspots.topPctSpike.pct.toFixed(1)}%)` : '',
-          hotspots?.topPctDrop ? `Biggest precinct drop: ${hotspots.topPctDrop.crime} in ${hotspots.topPctDrop.precinct} (${hotspots.topPctDrop.pct.toFixed(1)}%)` : '',
-          hotspots?.inequality ? `Top 5 violent precincts (${formatPop(hotspots.inequality.topPop)} residents) match crime total of ${hotspots.inequality.bottomCount} safest precincts (${formatPop(hotspots.inequality.bottomPop)} residents)` : '',
-          'Key offenses: ' + parsedData.felonies.map(f => `${f.name}: ${f.current.toLocaleString()} (${f.pct > 0 ? '+' : ''}${(f.pct || 0).toFixed(1)}%)`).join(', '),
-        ].filter(Boolean).join('\n');
-        const res = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            max_tokens: 250,
-            system: `You are a concise NYC crime data analyst writing for a data-literate audience. Write exactly 2 sentences.
-
-SENTENCE 1: State the single most newsworthy pattern for the timeframe, and explicitly name the timeframe at the start or end of the sentence (e.g. "Year-to-date through [date]…" or "For the week of [date]…"). Never say "this week" if the timeframe is year-to-date, and never say "year-to-date" if the timeframe is a single week.
-
-SENTENCE 2: Add essential context or a striking contrast.
-
-Rules: Cite only numbers that appear in the provided data. Never invent or paraphrase numbers. Do not reference a timeframe other than the one specified. No bullet points, no headers, no hedging.`,
-            messages: [{ role: 'user', content: `CompStat summary data:\n${ctx}\n\nWrite the 2-sentence headline summary, explicitly naming the timeframe in sentence 1.` }]
-          })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setWeeklySummary(data?.content?.[0]?.text || '');
-        }
-      } catch (e) { /* silent fail — summary is supplemental */ }
-      finally { setSummaryLoading(false); }
-    };
-    run();
-  }, [parsedData, hotspots, activeGeo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const buildTrendCards = () => {
     const cards = [];
@@ -1958,11 +1730,6 @@ Rules: Cite only numbers that appear in the provided data. Never invent or parap
             </table>
           </div>
 
-          {/* Unified AI Query Box */}
-          <div className="pt-12 mt-20 border-t border-gray-200">
-             <QueryBox parsedData={parsedData} activeGeo={activeGeo} activeTab={activeTab} period={parsedData.period} rawData={rawData} />
-          </div>
-
         </div>
       </div>
     );
@@ -2094,42 +1861,31 @@ Rules: Cite only numbers that appear in the provided data. Never invent or parap
           </div>
         </section>
 
-        {/* Story of the Week — AI-generated summary (citywide only) */}
-        {activeGeo === 'citywide' && (weeklySummary || summaryLoading) && (
-          <section className="mb-10 p-5 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles size={16} className="text-[#ff7c53]" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                {activeTab === 'ytd' ? 'Year-to-date summary' : 'Story of the week'}
-              </span>
-              <span className="text-[10px] font-medium text-gray-500 tabular-nums">
-                {activeTab === 'ytd'
-                  ? `Through ${parsedData.period?.week_end || '—'}`
-                  : `${parsedData.period?.week_start || '—'} – ${parsedData.period?.week_end || '—'}`}
-              </span>
-              <span className="text-[9px] font-medium text-gray-400 ml-auto uppercase tracking-wider">AI-generated</span>
-            </div>
-            {summaryLoading ? (
-              <div className="h-12 bg-gray-200 rounded animate-pulse" />
-            ) : (
-              <p className="font-serif text-[16px] leading-relaxed text-gray-800">{renderMarkdown(weeklySummary)}</p>
-            )}
-          </section>
-        )}
+        {activeGeo === 'citywide' && (() => {
+          const story = buildStorySummary({ parsedData, hotspots, activeTab });
+          if (!story) return null;
+          return (
+            <section className="mb-10 p-5 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                  {activeTab === 'ytd' ? 'Year-to-date summary' : 'Story of the week'}
+                </span>
+                <span className="text-[10px] font-medium text-gray-500 tabular-nums">
+                  {activeTab === 'ytd'
+                    ? `Through ${parsedData.period?.week_end || '—'}`
+                    : `${parsedData.period?.week_start || '—'} – ${parsedData.period?.week_end || '—'}`}
+                </span>
+              </div>
+              <p className="font-serif text-[16px] leading-relaxed text-gray-800">{story}</p>
+            </section>
+          );
+        })()}
 
         <div className="mb-6 flex items-center gap-2">
           <button onClick={() => setAppView('historic')} className="text-[11px] font-black uppercase tracking-widest text-gray-400 hover:text-black transition-colors flex items-center gap-1.5">
             <Activity size={12} /> Explore the 30-Year View →
           </button>
         </div>
-
-        <QueryBox
-          parsedData={parsedData}
-          activeGeo={activeGeo}
-          activeTab={activeTab}
-          period={parsedData.period}
-          rawData={rawData}
-        />
 
         <section className="mb-8 pt-8 border-t border-gray-200">
           <h2 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 mb-5">Trends to Watch</h2>
