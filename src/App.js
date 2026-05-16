@@ -403,6 +403,8 @@ const Info = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><path d="M12 16
 const Users = (p) => <Icon {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></Icon>;
 const SearchIcon = (p) => <Icon {...p}><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></Icon>;
 const Navigation = (p) => <Icon {...p}><polygon points="3 11 22 2 13 21 11 13 3 11"/></Icon>;
+const Link2 = (p) => <Icon {...p}><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></Icon>;
+const Download = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Icon>;
 const AlertTriangle = (p) => <Icon {...p}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></Icon>;
 const ShieldCheck = (p) => <Icon {...p}><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></Icon>;
 const ArrowLeft = (p) => <Icon {...p}><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></Icon>;
@@ -658,7 +660,7 @@ const ContextSparkline = ({ series, annualized, preLow, preHigh, width = 80, hei
 /* ------------------------------------------------------------------ */
 /* CITY COMPARISON WIDGET                                              */
 /* ------------------------------------------------------------------ */
-const CityComparisonWidget = ({ rtciData }) => {
+const CityComparisonWidget = ({ rtciData, downloadCSV }) => {
   const metrics = [
     { key: 'murder', label: 'Murder', unit: 'per 100k' },
     { key: 'violent', label: 'Violent Crime', unit: 'per 100k' },
@@ -746,14 +748,37 @@ const CityComparisonWidget = ({ rtciData }) => {
           Murder is the most reliably comparable crime category across jurisdictions — definitions are nearly identical and reporting rates approach 100%. Violent and property crime totals are more affected by differences in classification, reporting culture, and arrest practices, so cross-city comparisons in those categories should be read with more caution.
         </p>
       )}
-      <div className="mt-4 pt-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
+      <div className="mt-4 pt-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <p className="text-[10px] text-gray-400">
           Data through {period} · Updated {updated} · UCR Part I offenses · FBI population estimates
         </p>
-        <a href="https://realtimecrimeindex.com/" target="_blank" rel="noopener noreferrer"
-          className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline whitespace-nowrap">
-          Source: Real-Time Crime Index by AH Datalytics ↗
-        </a>
+        <div className="flex items-center gap-3 flex-wrap">
+          {downloadCSV && (
+            <button
+              onClick={() => {
+                const header = ['City', 'Population', 'Murder', 'Violent Crime', 'Property Crime', 'Murder per 100k', 'Violent per 100k', 'Property per 100k'];
+                const data = ranked.map(c => [
+                  c.city,
+                  c.pop,
+                  c.murder,
+                  c.violent,
+                  c.property,
+                  rtciRate(c.murder, c.pop),
+                  rtciRate(c.violent, c.pop),
+                  rtciRate(c.property, c.pop),
+                ]);
+                downloadCSV(`city_comparison_${activeMetric}_${activeGroup}.csv`, [header, ...data]);
+              }}
+              title="Download city comparison as CSV"
+              className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-black border border-gray-300 rounded px-2 py-1 hover:bg-gray-50 transition-colors flex items-center gap-1">
+              <Download size={10} /> CSV
+            </button>
+          )}
+          <a href="https://realtimecrimeindex.com/" target="_blank" rel="noopener noreferrer"
+            className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline whitespace-nowrap">
+            Source: Real-Time Crime Index by AH Datalytics ↗
+          </a>
+        </div>
       </div>
     </section>
   );
@@ -781,7 +806,7 @@ const TRANSIT_OFFENSE_LABELS = {
   'MURDER & NON-NEGL. MANSLAUGHTER': 'Murder',
 };
 
-const TransitCrimeBox = ({ rawData }) => {
+const TransitCrimeBox = ({ rawData, downloadCSV }) => {
   const cw = rawData?.citywide;
   const transit = cw?.additional_stats?.Transit;
 
@@ -948,11 +973,26 @@ const TransitCrimeBox = ({ rawData }) => {
             <p className="text-[11px] text-gray-500 italic mt-0.5">{breakdown?.periodLabel === 'Full year' ? 'Full-year totals' : 'Year-to-date totals through the same calendar day in each year'} from NYPD complaint-level data (NYC Open Data, transit-district filter). Different counting rules from CompStat above, so totals won't match exactly.</p>
           </div>
           {breakdown && (
-            <div className="text-right">
-              <div className="text-[9px] font-black uppercase tracking-widest text-gray-400">{breakdown.periodLabel === 'Full year' ? 'Annual total' : 'Period total'}</div>
-              <div className="text-[14px] font-black tabular-nums text-black">{breakdown.totalCur.toLocaleString()}</div>
-              <div className="text-[10px] tabular-nums" style={{ color: pctColor(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100) }}>
-                {fmtPct(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100)} vs {breakdown.totalPri.toLocaleString()}
+            <div className="flex items-start gap-3">
+              {downloadCSV && (
+                <button
+                  onClick={() => {
+                    const header = ['Offense', `${breakdown.year}`, `${breakdown.priorYear}`, 'Δ Volume', '% Change'];
+                    const data = breakdown.rows.map(r => [r.label, r.cur, r.prior, r.diff, typeof r.pct === 'number' ? r.pct.toFixed(2) : '']);
+                    downloadCSV(`transit_crime_${breakdown.year}_vs_${breakdown.priorYear}.csv`, [header, ...data]);
+                  }}
+                  title="Download this table as CSV"
+                  className="text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-black border border-gray-300 rounded px-2 py-1 hover:bg-gray-50 transition-colors flex items-center gap-1"
+                >
+                  <Download size={10} /> CSV
+                </button>
+              )}
+              <div className="text-right">
+                <div className="text-[9px] font-black uppercase tracking-widest text-gray-400">{breakdown.periodLabel === 'Full year' ? 'Annual total' : 'Period total'}</div>
+                <div className="text-[14px] font-black tabular-nums text-black">{breakdown.totalCur.toLocaleString()}</div>
+                <div className="text-[10px] tabular-nums" style={{ color: pctColor(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100) }}>
+                  {fmtPct(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100)} vs {breakdown.totalPri.toLocaleString()}
+                </div>
               </div>
             </div>
           )}
@@ -1336,12 +1376,15 @@ const UnifiedMagnitudeChart = ({ data, isTourist, citywideRates, activeGeo }) =>
 /* MAIN APP WITH VIEW ROUTING                                         */
 /* ------------------------------------------------------------------ */
 export default function App() {
-  const [appView, setAppView] = useState('live');
-  const [activeTab, setActiveTab] = useState('ytd');
-  const [activeGeo, setActiveGeo] = useState('citywide');
+  // Initialize state from URL query string so deep-links work on first load.
+  // Subsequent state changes write back to the URL via replaceState (no history clutter).
+  const initialParams = (typeof window !== 'undefined') ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const [appView, setAppView] = useState(initialParams.get('view') || 'live');
+  const [activeTab, setActiveTab] = useState(initialParams.get('tab') || 'ytd');
+  const [activeGeo, setActiveGeo] = useState(initialParams.get('geo') || 'citywide');
   const [rawData, setRawData] = useState(FALLBACK_DATA);
   const [loading, setLoading] = useState(false);
-  const [trendFilter, setTrendFilter] = useState('all');
+  const [trendFilter, setTrendFilter] = useState(initialParams.get('rows') || 'all');
   const [isLocating, setIsLocating] = useState(false);
   const [locateMsg, setLocateMsg] = useState("");
   const [geoFocused, setGeoFocused] = useState(false);
@@ -1351,8 +1394,8 @@ export default function App() {
   const [rtciData, setRtciData] = useState(null);
 
   // Map state
-  const [mapCrime, setMapCrime] = useState('all');
-  const [mapMode, setMapMode] = useState('rate');
+  const [mapCrime, setMapCrime] = useState(initialParams.get('mapCrime') || 'all');
+  const [mapMode, setMapMode] = useState(initialParams.get('mapMode') || 'rate');
 
   // Scatter plot state for Historic view
   const [xM, setXM] = useState('pov');
@@ -1372,6 +1415,52 @@ export default function App() {
   }, []);
 
   useEffect(() => { loadReport(); }, [loadReport]);
+
+  // Sync state to URL whenever any deep-linkable state changes — uses replaceState
+  // so toggles don't pollute the browser's back stack.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams();
+    if (appView !== 'live') params.set('view', appView);
+    if (activeTab !== 'ytd') params.set('tab', activeTab);
+    if (activeGeo !== 'citywide') params.set('geo', activeGeo);
+    if (mapMode !== 'rate') params.set('mapMode', mapMode);
+    if (mapCrime !== 'all') params.set('mapCrime', mapCrime);
+    if (trendFilter !== 'all') params.set('rows', trendFilter);
+    const qs = params.toString();
+    const newUrl = window.location.pathname + (qs ? '?' + qs : '') + window.location.hash;
+    if (newUrl !== window.location.pathname + window.location.search + window.location.hash) {
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [appView, activeTab, activeGeo, mapMode, mapCrime, trendFilter]);
+
+  // Copy the current URL (with all view state) to the clipboard so users can share specific views.
+  const [copyLinkLabel, setCopyLinkLabel] = useState('Copy link');
+  const handleCopyLink = useCallback(() => {
+    try {
+      navigator.clipboard.writeText(window.location.href);
+      setCopyLinkLabel('Copied!');
+      setTimeout(() => setCopyLinkLabel('Copy link'), 1500);
+    } catch {
+      setCopyLinkLabel('Copy failed');
+      setTimeout(() => setCopyLinkLabel('Copy link'), 1500);
+    }
+  }, []);
+
+  // Generic CSV download helper. Takes a filename and an array of arrays (header + rows).
+  const downloadCSV = useCallback((filename, rows) => {
+    const escapeCell = (c) => {
+      const s = c == null ? '' : String(c);
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = rows.map(r => r.map(escapeCell).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, []);
 
   // Fetch RTCI city comparison data
   useEffect(() => {
@@ -2010,7 +2099,10 @@ export default function App() {
           ].map(([id, label]) => (
             <a key={id} href={`#${id}`} className="text-[10px] font-black uppercase tracking-widest text-gray-600 hover:text-black px-2 py-1 rounded hover:bg-gray-100 transition-colors flex-shrink-0">{label}</a>
           ))}
-          <span className="ml-auto flex items-center gap-2 flex-shrink-0">
+          <span className="ml-auto flex items-center gap-3 flex-shrink-0">
+            <button onClick={handleCopyLink} title="Copy a shareable link to this exact view" className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-black transition-colors flex items-center gap-1.5">
+              <Link2 size={12} /> {copyLinkLabel}
+            </button>
             <button onClick={() => setAppView('historic')} className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-black transition-colors flex items-center gap-1.5">
               <Activity size={12} /> 30-Year View →
             </button>
@@ -2081,16 +2173,39 @@ export default function App() {
             </section>
           )}
 
-          {activeGeo === 'citywide' && <div id="national" className="scroll-mt-16"><CityComparisonWidget rtciData={rtciData} /></div>}
+          {activeGeo === 'citywide' && <div id="national" className="scroll-mt-16"><CityComparisonWidget rtciData={rtciData} downloadCSV={downloadCSV} /></div>}
 
-          {activeGeo === 'citywide' && <div id="transit" className="scroll-mt-16"><TransitCrimeBox rawData={rawData} /></div>}
+          {activeGeo === 'citywide' && <div id="transit" className="scroll-mt-16"><TransitCrimeBox rawData={rawData} downloadCSV={downloadCSV} /></div>}
 
           <div id="ledger" className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 border-b-2 border-black pb-4 gap-4 scroll-mt-16">
             <h3 className="text-[14px] font-black uppercase tracking-[0.15em] text-black">{trendFilter === 'all' ? 'Detailed Data Ledger' : trendFilter === 'up' ? 'Rising Offenses' : 'Falling Offenses'}</h3>
-            <div className="flex bg-gray-100 p-1 rounded border border-gray-200 w-full md:w-auto">
-              <button onClick={() => setTrendFilter('all')} className={`flex-1 md:flex-none px-4 py-1.5 text-[10px] font-black uppercase ${trendFilter === 'all' ? 'bg-white shadow-sm' : 'text-gray-500'}`}>All</button>
-              <button onClick={() => setTrendFilter('up')} className={`flex-1 md:flex-none px-4 py-1.5 text-[10px] font-black uppercase ${trendFilter === 'up' ? 'bg-white shadow-sm text-orange-600' : 'text-gray-500'}`}>Rising</button>
-              <button onClick={() => setTrendFilter('down')} className={`flex-1 md:flex-none px-4 py-1.5 text-[10px] font-black uppercase ${trendFilter === 'down' ? 'bg-white shadow-sm text-green-600' : 'text-gray-500'}`}>Falling</button>
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="flex bg-gray-100 p-1 rounded border border-gray-200 flex-1 md:flex-none">
+                <button onClick={() => setTrendFilter('all')} className={`flex-1 md:flex-none px-4 py-1.5 text-[10px] font-black uppercase ${trendFilter === 'all' ? 'bg-white shadow-sm' : 'text-gray-500'}`}>All</button>
+                <button onClick={() => setTrendFilter('up')} className={`flex-1 md:flex-none px-4 py-1.5 text-[10px] font-black uppercase ${trendFilter === 'up' ? 'bg-white shadow-sm text-orange-600' : 'text-gray-500'}`}>Rising</button>
+                <button onClick={() => setTrendFilter('down')} className={`flex-1 md:flex-none px-4 py-1.5 text-[10px] font-black uppercase ${trendFilter === 'down' ? 'bg-white shadow-sm text-green-600' : 'text-gray-500'}`}>Falling</button>
+              </div>
+              <button
+                onClick={() => {
+                  const rows = trendFilter === 'all' ? parsedData.all : (trendFilter === 'up' ? risingOffenses : fallingOffenses);
+                  const header = ['Offense', 'Person/Property', 'Current', 'Prior Year', '% Change', activeGeo === 'citywide' ? 'Rate per 100k' : 'Local Rate per 100k', 'Citywide Rate per 100k'];
+                  const data = rows.map(r => [
+                    r.name,
+                    offenseClass(r.name) === 'Per' ? 'Person' : offenseClass(r.name) === 'Prop' ? 'Property' : '',
+                    r.current,
+                    r.prior,
+                    typeof r.pct === 'number' ? r.pct.toFixed(2) : '',
+                    r.currentRate != null ? r.currentRate.toFixed(2) : '',
+                    parsedData.citywideRates?.[r.name] != null ? parsedData.citywideRates[r.name].toFixed(2) : '',
+                  ]);
+                  const geo = activeGeo === 'citywide' ? 'citywide' : activeGeo.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+                  const period = (parsedData.period?.week_end || 'period').replace(/[^a-z0-9]+/gi, '-');
+                  downloadCSV(`compstat_${geo}_${activeTab}_${period}.csv`, [header, ...data]);
+                }}
+                title="Download this table as CSV"
+                className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-black border border-gray-300 rounded px-3 py-1.5 hover:bg-gray-50 transition-colors flex-shrink-0">
+                <Download size={12} /> CSV
+              </button>
             </div>
           </div>
           <div className="overflow-x-auto">
