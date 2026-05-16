@@ -664,8 +664,15 @@ const CityComparisonWidget = ({ rtciData }) => {
     { key: 'violent', label: 'Violent Crime', unit: 'per 100k' },
     { key: 'property', label: 'Property Crime', unit: 'per 100k' },
   ];
-  const [activeMetric, setActiveMetric] = useState('murder');
-  const [activeGroup, setActiveGroup] = useState('largest5');
+  // Toggle persistence: remember the user's last metric / group choice across sessions.
+  const [activeMetric, setActiveMetric] = useState(() => {
+    try { return localStorage.getItem('rtci_metric') || 'murder'; } catch { return 'murder'; }
+  });
+  const [activeGroup, setActiveGroup] = useState(() => {
+    try { return localStorage.getItem('rtci_group') || 'largest5'; } catch { return 'largest5'; }
+  });
+  useEffect(() => { try { localStorage.setItem('rtci_metric', activeMetric); } catch {} }, [activeMetric]);
+  useEffect(() => { try { localStorage.setItem('rtci_group', activeGroup); } catch {} }, [activeGroup]);
   const metric = metrics.find(m => m.key === activeMetric);
   const group = RTCI_GROUPS.find(g => g.key === activeGroup) || RTCI_GROUPS[0];
 
@@ -734,6 +741,11 @@ const CityComparisonWidget = ({ rtciData }) => {
           );
         })}
       </div>
+      {activeMetric === 'murder' && (
+        <p className="mt-3 text-[11px] font-serif italic text-gray-500 leading-snug">
+          Murder is the most reliably comparable crime category across jurisdictions — definitions are nearly identical and reporting rates approach 100%. Violent and property crime totals are more affected by differences in classification, reporting culture, and arrest practices, so cross-city comparisons in those categories should be read with more caution.
+        </p>
+      )}
       <div className="mt-4 pt-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
         <p className="text-[10px] text-gray-400">
           Data through {period} · Updated {updated} · UCR Part I offenses · FBI population estimates
@@ -971,16 +983,24 @@ const TransitCrimeBox = ({ rawData }) => {
               <span className="w-14 text-right"><SortHeader field="change">Δ %</SortHeader></span>
             </div>
             {sorted.map(r => {
-              const curW = (r.cur / maxVal) * 100;
-              const priW = (r.prior / maxVal) * 100;
+              // Bars below this threshold render as unreadable slivers; hide them entirely
+              // and rely on the numeric columns so tiny offenses (Arson, Kidnapping, Rape) read cleanly.
+              const BAR_VISIBILITY_THRESHOLD = 1; // percent of max
+              const rawCurW = maxVal > 0 ? (r.cur / maxVal) * 100 : 0;
+              const rawPriW = maxVal > 0 ? (r.prior / maxVal) * 100 : 0;
+              const showCurBar = rawCurW >= BAR_VISIBILITY_THRESHOLD;
+              const showPriBar = rawPriW >= BAR_VISIBILITY_THRESHOLD;
+              // Minimum visible width for bars that DO render, so they aren't 1-pixel slivers.
+              const curW = showCurBar ? Math.max(rawCurW, 2) : 0;
+              const priW = showPriBar ? Math.max(rawPriW, 2) : 0;
               const deltaStr = `${r.diff > 0 ? '+' : ''}${r.diff.toLocaleString()}`;
               return (
                 <div key={r.name} className="flex items-center gap-3 py-1 text-[11px]">
                   <span className="w-32 flex-shrink-0 font-bold text-gray-800 truncate" title={r.label}>{r.label}</span>
                   <div className="flex-1 min-w-[120px]">
                     <div className="relative h-[10px]">
-                      <div className="absolute top-0 left-0 h-[4px] rounded-sm bg-gray-900" style={{ width: `${curW}%` }} />
-                      <div className="absolute top-[6px] left-0 h-[4px] rounded-sm bg-gray-300" style={{ width: `${priW}%` }} />
+                      {showCurBar && <div className="absolute top-0 left-0 h-[4px] rounded-sm bg-gray-900" style={{ width: `${curW}%` }} />}
+                      {showPriBar && <div className="absolute top-[6px] left-0 h-[4px] rounded-sm bg-gray-300" style={{ width: `${priW}%` }} />}
                     </div>
                   </div>
                   <span className="w-14 text-right tabular-nums font-bold text-black">{r.cur.toLocaleString()}</span>
@@ -1132,7 +1152,7 @@ const PrecinctMap = ({ precinctRates, onSelect, activeGeo, mapMode = 'rate', wid
         )}
         <span className="ml-3 pl-3 border-l border-gray-300 flex items-center gap-1" title="Tourist/commercial precincts: per-100k rates use residential population only and are not comparable. % change and volume Δ are not distorted.">
           <span className="inline-block w-3 h-3" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(31,41,55,0.5) 2px, rgba(31,41,55,0.5) 3px)' }} />
-          Tourist hub {mapMode === 'rate' && <span className="italic text-gray-400">(rate distorted)</span>}
+          Tourist hubs: 14th, 18th, 22nd {mapMode === 'rate' && <span className="italic text-gray-400">(rate distorted)</span>}
         </span>
       </div>
     </div>
@@ -1240,24 +1260,33 @@ const DivergingBarChart = ({ data }) => {
           const isIncrease = row.pct > 0;
           const isSmallN = row.prior < VOLATILITY_THRESHOLD;
           const barWidth = (Math.abs(row.pct) / scaleMax) * MAX_BAR_WIDTH;
-          const textColor = isIncrease ? VC.orange : VC.green;
-          const labelOutside = barWidth < 36;
+          // Unified color system: bar color = person vs. property (matches the volume chart).
+          // Direction is encoded by position relative to the zero axis (left = decline, right = rise).
+          const personProperty = offenseClass(row.name);
+          const barColor = personProperty === 'Per' ? VC.magenta : personProperty === 'Prop' ? VC.indigo : VC.periwinkle;
+          const arrow = isIncrease ? '▲' : '▼';
+          const labelOutside = barWidth < 44;
           const labelX = isIncrease
             ? (labelOutside ? CENTER_X + barWidth + 6 : CENTER_X + barWidth - 6)
             : (labelOutside ? CENTER_X - barWidth - 6 : CENTER_X - barWidth + 6);
           const labelAnchor = isIncrease
             ? (labelOutside ? "start" : "end")
             : (labelOutside ? "end" : "start");
-          const labelFill = labelOutside ? textColor : '#ffffff';
+          const labelFill = labelOutside ? barColor : '#ffffff';
           return (
             <g key={row.name}>
               <text x={NAME_COL - 8} y={y + 5} textAnchor="end" fontSize="13" fontWeight="bold" fill={VC.black} opacity={isSmallN ? 0.5 : 1}>{row.name}{isSmallN ? '*' : ''}</text>
-              <rect x={isIncrease ? CENTER_X : CENTER_X - barWidth} y={y - 9} width={barWidth} height="20" fill={textColor} fillOpacity={isSmallN ? 0.3 : 1} rx="3" />
-              <text x={labelX} y={y + 5} textAnchor={labelAnchor} fontSize="12" fontWeight="bold" fill={labelFill} opacity={isSmallN ? 0.5 : 1}>{formatPct(row.pct)}</text>
+              <rect x={isIncrease ? CENTER_X : CENTER_X - barWidth} y={y - 9} width={barWidth} height="20" fill={barColor} fillOpacity={isSmallN ? 0.3 : 1} rx="3" />
+              <text x={labelX} y={y + 5} textAnchor={labelAnchor} fontSize="12" fontWeight="bold" fill={labelFill} opacity={isSmallN ? 0.5 : 1}>{arrow} {Math.abs(row.pct).toFixed(1)}%</text>
             </g>
           );
         })}
       </svg>
+      <div className="flex items-center justify-end gap-4 mt-2 text-[10px] text-gray-500">
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ background: VC.magenta }} />Person</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 inline-block" style={{ background: VC.indigo }} />Property</span>
+        <span className="text-gray-400">· Left of axis = decline, right = rise</span>
+      </div>
     </div>
   );
 };
@@ -1275,8 +1304,8 @@ const UnifiedMagnitudeChart = ({ data, isTourist, citywideRates, activeGeo }) =>
       <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest border-b pb-2 mb-3 text-gray-400">
         <span>Incident Volume</span>
         <div className="hidden sm:flex items-center gap-3">
-          <span className="flex items-center gap-1 text-[9px] font-bold" style={{color: VC.magenta}}><span className="w-1.5 h-1.5 rounded-full inline-block" style={{background: VC.magenta}}></span>Person</span>
-          <span className="flex items-center gap-1 text-[9px] font-bold" style={{color: VC.indigo}}><span className="w-1.5 h-1.5 rounded-full inline-block" style={{background: VC.indigo}}></span>Property</span>
+          <span className="flex items-center gap-1 text-[9px] font-bold" style={{color: VC.magenta}}><span className="w-2 h-2 rounded-full inline-block" style={{background: VC.magenta}}></span>Person</span>
+          <span className="flex items-center gap-1 text-[9px] font-bold" style={{color: VC.indigo}}><span className="w-2 h-2 inline-block" style={{background: VC.indigo}}></span>Property</span>
         </div>
       </div>
       <svg viewBox={`0 0 ${VIEWBOX_WIDTH} ${totalHeight}`} className="w-full h-auto">
