@@ -909,52 +909,52 @@ const TransitCrimeBox = ({ rawData, downloadCSV }) => {
       <button
         onClick={() => setSortBy(field)}
         title={`Sort by ${field}`}
-        className={`group inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors ${active ? 'text-black' : 'text-gray-500 hover:text-black'} ${align === 'right' ? 'justify-end' : 'justify-start'}`}
+        className={`group inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-widest cursor-pointer transition-colors ${active ? 'text-black' : 'text-gray-500 hover:text-black'} ${align === 'right' ? 'justify-end' : 'justify-start'}`}
       >
         <span className="underline decoration-dotted decoration-gray-300 underline-offset-[3px] group-hover:decoration-black">{children}</span>
-        <span className={`inline-block text-[10px] leading-none transition-opacity ${active ? 'opacity-100 text-black' : 'opacity-40 group-hover:opacity-80'}`}>{active ? '▼' : '↕'}</span>
+        <span className={`inline-block text-[12px] leading-none transition-opacity ${active ? 'opacity-100 text-black' : 'opacity-40 group-hover:opacity-80'}`}>{active ? '▼' : '↕'}</span>
       </button>
     );
   };
 
   const Kpi = ({ label, value, prior, pct, size = 'sm' }) => (
     <div className="flex flex-col">
-      <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">{label}</span>
-      <div className="flex items-baseline gap-2 mt-1">
-        <span className={`tabular-nums font-black text-black ${size === 'lg' ? 'text-[28px] leading-none' : 'text-[18px] leading-none'}`}>{value?.toLocaleString() ?? '—'}</span>
+      <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">{label}</span>
+      <div className="flex items-baseline gap-2 mt-1.5">
+        <span className={`tabular-nums font-black text-black ${size === 'lg' ? 'text-[40px] leading-none' : 'text-[26px] leading-none'}`}>{value?.toLocaleString() ?? '—'}</span>
         {pct != null && (
-          <span className="tabular-nums font-bold text-[12px]" style={{ color: pctColor(pct) }}>{fmtPct(pct)}</span>
+          <span className="tabular-nums font-bold text-[15px]" style={{ color: pctColor(pct) }}>{fmtPct(pct)}</span>
         )}
       </div>
       {prior != null && (
-        <span className="text-[10px] text-gray-400 mt-0.5 tabular-nums">vs {prior.toLocaleString()} prior yr</span>
+        <span className="text-[12px] text-gray-400 mt-1 tabular-nums">vs {prior.toLocaleString()} prior yr</span>
       )}
     </div>
   );
 
   return (
-    <section className="mb-10 p-5 bg-white rounded-sm border-l-4 border-gray-900 border-t border-r border-b border-gray-200">
+    <section className="mb-10 p-6 md:p-8 bg-white rounded-sm border-l-4 border-gray-900 border-t border-r border-b border-gray-200">
       {/* Header */}
-      <div className="flex items-start justify-between mb-5 gap-3 flex-wrap">
+      <div className="flex items-start justify-between mb-6 gap-3 flex-wrap">
         <div className="flex-1 min-w-[220px]">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">Transit System · Major Felony Index</h3>
-          <p className="text-[13px] font-serif text-gray-600 mt-0.5">
+          <h3 className="text-[12px] font-black uppercase tracking-[0.15em] text-gray-500">Transit System · Major Felony Index</h3>
+          <p className="text-[15px] font-serif text-gray-600 mt-1 max-w-2xl">
             Offenses recorded on the NYC subway and bus system. Live weekly CompStat feed from the NYPD Transit Bureau.
           </p>
         </div>
-        <span className="text-[10px] text-gray-400 whitespace-nowrap">Week ending {period.week_end || '?'}</span>
+        <span className="text-[12px] text-gray-400 whitespace-nowrap">Week ending {period.week_end || '?'}</span>
       </div>
 
       {/* Current trend KPI grid */}
-      <div className="pb-4 mb-5 border-b border-gray-100">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-x-6 gap-y-4 items-end">
+      <div className="pb-6 mb-6 border-b border-gray-200">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-x-8 gap-y-6 items-end">
           <div className="col-span-2 md:col-span-2">
             <Kpi label="Year to date" value={ytd.current_year} prior={ytd.prior_year} pct={ytd.pct_change} size="lg" />
           </div>
           <Kpi label="Last 28 days" value={m28.current_year} pct={m28.pct_change} />
           <Kpi label="This week" value={wtd.current_year} pct={wtd.pct_change} />
-          <div className="flex flex-col gap-1 text-[11px]">
-            <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Long view</span>
+          <div className="flex flex-col gap-1.5 text-[13px]">
+            <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">Long view</span>
             {hist['2_yr_pct'] != null && (
               <span className="text-gray-600">vs 2 yrs ago <strong className="tabular-nums ml-1" style={{ color: pctColor(hist['2_yr_pct']) }}>{fmtPct(hist['2_yr_pct'])}</strong></span>
             )}
@@ -966,11 +966,11 @@ const TransitCrimeBox = ({ rawData, downloadCSV }) => {
       </div>
 
       {/* Unified offense-type table */}
-      <div className="max-w-3xl">
-        <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
+      <div>
+        <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
           <div>
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">By offense type{breakdown ? ` · ${breakdown.year} vs ${breakdown.priorYear}${breakdown.periodLabel && breakdown.periodLabel !== 'Full year' ? ` (${breakdown.periodLabel})` : ''}` : ''}</h4>
-            <p className="text-[11px] text-gray-500 italic mt-0.5">{breakdown?.periodLabel === 'Full year' ? 'Full-year totals' : 'Year-to-date totals through the same calendar day in each year'} from NYPD complaint-level data (NYC Open Data, transit-district filter). Different counting rules from CompStat above, so totals won't match exactly.</p>
+            <h4 className="text-[12px] font-black uppercase tracking-widest text-gray-600">By offense type{breakdown ? ` · ${breakdown.year} vs ${breakdown.priorYear}${breakdown.periodLabel && breakdown.periodLabel !== 'Full year' ? ` (${breakdown.periodLabel})` : ''}` : ''}</h4>
+            <p className="text-[12px] text-gray-500 italic mt-1 max-w-2xl">{breakdown?.periodLabel === 'Full year' ? 'Full-year totals' : 'Year-to-date totals through the same calendar day in each year'} from NYPD complaint-level data (NYC Open Data, transit-district filter). Different counting rules from CompStat above, so totals won't match exactly.</p>
           </div>
           {breakdown && (
             <div className="flex items-start gap-3">
@@ -982,15 +982,15 @@ const TransitCrimeBox = ({ rawData, downloadCSV }) => {
                     downloadCSV(`transit_crime_${breakdown.year}_vs_${breakdown.priorYear}.csv`, [header, ...data]);
                   }}
                   title="Download this table as CSV"
-                  className="text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-black border border-gray-300 rounded px-2 py-1 hover:bg-gray-50 transition-colors flex items-center gap-1"
+                  className="text-[11px] font-black uppercase tracking-widest text-gray-500 hover:text-black border border-gray-300 rounded px-2.5 py-1.5 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
                 >
-                  <Download size={10} /> CSV
+                  <Download size={12} /> CSV
                 </button>
               )}
               <div className="text-right">
-                <div className="text-[9px] font-black uppercase tracking-widest text-gray-400">{breakdown.periodLabel === 'Full year' ? 'Annual total' : 'Period total'}</div>
-                <div className="text-[14px] font-black tabular-nums text-black">{breakdown.totalCur.toLocaleString()}</div>
-                <div className="text-[10px] tabular-nums" style={{ color: pctColor(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100) }}>
+                <div className="text-[11px] font-black uppercase tracking-widest text-gray-500">{breakdown.periodLabel === 'Full year' ? 'Annual total' : 'Period total'}</div>
+                <div className="text-[22px] font-black tabular-nums text-black leading-tight">{breakdown.totalCur.toLocaleString()}</div>
+                <div className="text-[12px] tabular-nums" style={{ color: pctColor(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100) }}>
                   {fmtPct(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100)} vs {breakdown.totalPri.toLocaleString()}
                 </div>
               </div>
@@ -998,29 +998,29 @@ const TransitCrimeBox = ({ rawData, downloadCSV }) => {
           )}
         </div>
 
-        {breakdownLoading && <div className="text-[11px] text-gray-400 italic py-4">Fetching per-offense breakdown from NYC Open Data…</div>}
-        {breakdownErr && <div className="text-[11px] text-gray-400 italic py-4">Per-offense breakdown unavailable — NYC Open Data could not be reached.</div>}
+        {breakdownLoading && <div className="text-[13px] text-gray-400 italic py-4">Fetching per-offense breakdown from NYC Open Data…</div>}
+        {breakdownErr && <div className="text-[13px] text-gray-400 italic py-4">Per-offense breakdown unavailable — NYC Open Data could not be reached.</div>}
         {breakdown && (
           <div>
             {/* Sort hint + sortable header row */}
-            <div className="flex items-center gap-2 mb-2 text-[10px] text-gray-500">
-              <span className="font-bold uppercase tracking-widest text-[9px] text-gray-400">Sort by:</span>
-              <button onClick={() => setSortBy('volume')} className={`px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-wide transition-colors ${sortBy === 'volume' ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Volume</button>
-              <button onClick={() => setSortBy('delta')} className={`px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-wide transition-colors ${sortBy === 'delta' ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Δ Volume</button>
-              <button onClick={() => setSortBy('change')} className={`px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-wide transition-colors ${sortBy === 'change' ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Δ %</button>
-              <button onClick={() => setSortBy('name')} className={`px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-wide transition-colors ${sortBy === 'name' ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>A–Z</button>
-              <span className="text-[10px] text-gray-400 italic ml-1">(column headers are also clickable)</span>
+            <div className="flex items-center gap-2 mb-3 text-[12px] text-gray-500 flex-wrap">
+              <span className="font-bold uppercase tracking-widest text-[11px] text-gray-400">Sort by:</span>
+              <button onClick={() => setSortBy('volume')} className={`px-3 py-1 rounded-sm text-[12px] font-bold uppercase tracking-wide transition-colors ${sortBy === 'volume' ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Volume</button>
+              <button onClick={() => setSortBy('delta')} className={`px-3 py-1 rounded-sm text-[12px] font-bold uppercase tracking-wide transition-colors ${sortBy === 'delta' ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Δ Volume</button>
+              <button onClick={() => setSortBy('change')} className={`px-3 py-1 rounded-sm text-[12px] font-bold uppercase tracking-wide transition-colors ${sortBy === 'change' ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Δ %</button>
+              <button onClick={() => setSortBy('name')} className={`px-3 py-1 rounded-sm text-[12px] font-bold uppercase tracking-wide transition-colors ${sortBy === 'name' ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>A–Z</button>
+              <span className="text-[12px] text-gray-400 italic ml-1">(column headers are also clickable)</span>
             </div>
-            <div className="flex items-center gap-3 pb-2 mb-1 border-b border-gray-200 bg-gray-50 -mx-1 px-1 rounded-sm">
-              <SortHeader field="name" align="left"><span className="w-32 inline-block text-left">Offense</span></SortHeader>
-              <div className="flex-1 min-w-[120px] flex items-center gap-3 text-[9px] font-bold uppercase tracking-widest text-gray-400">
-                <span className="flex items-center gap-1"><span className="inline-block w-3 h-[4px] bg-gray-900 rounded-sm" /> {breakdown.year}</span>
-                <span className="flex items-center gap-1"><span className="inline-block w-3 h-[4px] bg-gray-300 rounded-sm" /> {breakdown.priorYear}</span>
+            <div className="flex items-center gap-4 pb-2.5 mb-1 border-b border-gray-300 bg-gray-50 -mx-2 px-2 rounded-sm">
+              <SortHeader field="name" align="left"><span className="w-40 inline-block text-left">Offense</span></SortHeader>
+              <div className="flex-1 min-w-[140px] flex items-center gap-4 text-[11px] font-bold uppercase tracking-widest text-gray-400">
+                <span className="flex items-center gap-1.5"><span className="inline-block w-4 h-[7px] bg-gray-900 rounded-sm" /> {breakdown.year}</span>
+                <span className="flex items-center gap-1.5"><span className="inline-block w-4 h-[7px] bg-gray-300 rounded-sm" /> {breakdown.priorYear}</span>
               </div>
-              <span className="w-14 text-right"><SortHeader field="volume">{breakdown.year}</SortHeader></span>
-              <span className="w-14 text-right text-[9px] font-black uppercase tracking-widest text-gray-400">{breakdown.priorYear}</span>
-              <span className="w-16 text-right"><SortHeader field="delta">Δ vol</SortHeader></span>
-              <span className="w-14 text-right"><SortHeader field="change">Δ %</SortHeader></span>
+              <span className="w-16 text-right"><SortHeader field="volume">{breakdown.year}</SortHeader></span>
+              <span className="w-16 text-right text-[11px] font-black uppercase tracking-widest text-gray-400">{breakdown.priorYear}</span>
+              <span className="w-20 text-right"><SortHeader field="delta">Δ vol</SortHeader></span>
+              <span className="w-16 text-right"><SortHeader field="change">Δ %</SortHeader></span>
             </div>
             {sorted.map(r => {
               // Bars below this threshold render as unreadable slivers; hide them entirely
@@ -1035,18 +1035,18 @@ const TransitCrimeBox = ({ rawData, downloadCSV }) => {
               const priW = showPriBar ? Math.max(rawPriW, 2) : 0;
               const deltaStr = `${r.diff > 0 ? '+' : ''}${r.diff.toLocaleString()}`;
               return (
-                <div key={r.name} className="flex items-center gap-3 py-1 text-[11px]">
-                  <span className="w-32 flex-shrink-0 font-bold text-gray-800 truncate" title={r.label}>{r.label}</span>
-                  <div className="flex-1 min-w-[120px]">
-                    <div className="relative h-[10px]">
-                      {showCurBar && <div className="absolute top-0 left-0 h-[4px] rounded-sm bg-gray-900" style={{ width: `${curW}%` }} />}
-                      {showPriBar && <div className="absolute top-[6px] left-0 h-[4px] rounded-sm bg-gray-300" style={{ width: `${priW}%` }} />}
+                <div key={r.name} className="flex items-center gap-4 py-2 text-[14px] border-b border-gray-50 hover:bg-gray-50/60 -mx-2 px-2 rounded-sm transition-colors">
+                  <span className="w-40 flex-shrink-0 font-bold text-gray-800 truncate" title={r.label}>{r.label}</span>
+                  <div className="flex-1 min-w-[140px]">
+                    <div className="relative h-[20px]">
+                      {showCurBar && <div className="absolute top-0 left-0 h-[8px] rounded-sm bg-gray-900" style={{ width: `${curW}%` }} />}
+                      {showPriBar && <div className="absolute top-[11px] left-0 h-[8px] rounded-sm bg-gray-300" style={{ width: `${priW}%` }} />}
                     </div>
                   </div>
-                  <span className="w-14 text-right tabular-nums font-bold text-black">{r.cur.toLocaleString()}</span>
-                  <span className="w-14 text-right tabular-nums text-gray-400">{r.prior.toLocaleString()}</span>
-                  <span className="w-16 text-right tabular-nums font-bold" style={{ color: pctColor(r.diff) }}>{deltaStr}</span>
-                  <span className="w-14 text-right tabular-nums font-bold" style={{ color: pctColor(r.pct) }}>{fmtPct(r.pct)}</span>
+                  <span className="w-16 text-right tabular-nums font-black text-black">{r.cur.toLocaleString()}</span>
+                  <span className="w-16 text-right tabular-nums text-gray-400">{r.prior.toLocaleString()}</span>
+                  <span className="w-20 text-right tabular-nums font-bold" style={{ color: pctColor(r.diff) }}>{deltaStr}</span>
+                  <span className="w-16 text-right tabular-nums font-bold" style={{ color: pctColor(r.pct) }}>{fmtPct(r.pct)}</span>
                 </div>
               );
             })}
@@ -1054,7 +1054,7 @@ const TransitCrimeBox = ({ rawData, downloadCSV }) => {
         )}
       </div>
 
-      <p className="text-[10px] text-gray-400 mt-4 italic leading-snug">
+      <p className="text-[12px] text-gray-400 mt-6 italic leading-relaxed max-w-3xl">
         CompStat live = weekly NYPD CompStat feed for Transit Bureau (all major felonies combined, through week ending {period.week_end || '?'}).
         By-offense totals = NYC Open Data complaint-level extract filtered to records with a transit-district code, most recent complete calendar year vs prior. The two sources use different counting rules, so the aggregates will not match exactly.
       </p>
