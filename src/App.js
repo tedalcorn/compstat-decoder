@@ -1065,7 +1065,7 @@ const TransitCrimeBox = ({ rawData, downloadCSV }) => {
 /* ------------------------------------------------------------------ */
 /* PRECINCT CHOROPLETH MAP                                             */
 /* ------------------------------------------------------------------ */
-const PrecinctMap = ({ precinctRates, onSelect, activeGeo, mapMode = 'rate', width = 520, height = 520 }) => {
+const PrecinctMap = ({ precinctRates, onSelect, activeGeo, mapMode = 'rate', width = 520, height = 520, externalHovered = null, onHover }) => {
   const [hovered, setHovered] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const svgRef = useRef(null);
@@ -1098,6 +1098,7 @@ const PrecinctMap = ({ precinctRates, onSelect, activeGeo, mapMode = 'rate', wid
     setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
   };
 
+  const activeHover = hovered != null ? hovered : externalHovered;
   const hoveredData = hovered ? rateMap[hovered] : null;
 
   // Compute rank among non-tourist precincts (by rate, highest = rank 1)
@@ -1116,7 +1117,9 @@ const PrecinctMap = ({ precinctRates, onSelect, activeGeo, mapMode = 'rate', wid
             <line x1="0" y1="0" x2="0" y2="6" stroke="#1f2937" strokeOpacity="0.5" strokeWidth="1" />
           </pattern>
         </defs>
-        {precinctGeoJSON.features.map(feature => {
+        {[...precinctGeoJSON.features]
+          .sort((a, b) => (a.properties.precinct === activeHover ? 1 : 0) - (b.properties.precinct === activeHover ? 1 : 0))
+          .map(feature => {
           const pNum = feature.properties.precinct;
           const pData = rateMap[pNum];
           // Tourist precincts now show their actual color; the hatch overlay flags them visually
@@ -1125,16 +1128,17 @@ const PrecinctMap = ({ precinctRates, onSelect, activeGeo, mapMode = 'rate', wid
           const fill = mapMode === 'change' ? changeColor(pData?.pctChange, maxAbsChange)
             : mapMode === 'volume' ? changeColor(pData?.countDelta, maxAbsDelta)
             : crimeColor(pData?.rate, minRate, maxRate);
+          const isActive = activeHover === pNum;
           return (
             <g key={pNum}>
               <path
                 d={pathFn(feature)}
                 fill={fill}
-                stroke="#fff"
-                strokeWidth={hovered === pNum ? 2 : 0.5}
-                style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-                onMouseEnter={() => setHovered(pNum)}
-                onMouseLeave={() => setHovered(null)}
+                stroke={isActive ? '#111827' : '#fff'}
+                strokeWidth={isActive ? 2 : 0.5}
+                style={{ cursor: 'pointer', transition: 'fill 0.15s, stroke 0.15s' }}
+                onMouseEnter={() => { setHovered(pNum); onHover && onHover(pNum); }}
+                onMouseLeave={() => { setHovered(null); onHover && onHover(null); }}
                 onClick={() => pData && onSelect(pData.precinct)}
               />
               {pData?.isTourist && (
@@ -1202,7 +1206,7 @@ const PrecinctMap = ({ precinctRates, onSelect, activeGeo, mapMode = 'rate', wid
 /* ------------------------------------------------------------------ */
 /* PRECINCT RANKING BARS                                               */
 /* ------------------------------------------------------------------ */
-const PrecinctRankingBars = ({ precinctRates, onSelect, mapMode = 'rate' }) => {
+const PrecinctRankingBars = ({ precinctRates, onSelect, mapMode = 'rate', hoveredPrecinctNum = null, onHover }) => {
   const { top5, bottom5 } = useMemo(() => {
     // Tourist precincts (Times Square / Midtown South) have distorted per-capita rates
     // but their % change and volume Δ are not distorted by daytime population, so we include
@@ -1231,8 +1235,15 @@ const PrecinctRankingBars = ({ precinctRates, onSelect, mapMode = 'rate' }) => {
     const displayVal = mapMode === 'change' ? `${item.pctChange > 0 ? '+' : ''}${item.pctChange.toFixed(1)}%`
       : mapMode === 'volume' ? `${item.countDelta > 0 ? '+' : ''}${item.countDelta.toLocaleString()}`
       : item.rate.toFixed(0);
+    const isActive = hoveredPrecinctNum === item.precinctNum;
     return (
-      <div key={item.precinct} className="flex items-center gap-2 py-1 cursor-pointer hover:bg-gray-50 -mx-2 px-2 rounded transition-colors" onClick={() => onSelect(item.precinct)}>
+      <div
+        key={item.precinct}
+        className={`flex items-center gap-2 py-1 cursor-pointer -mx-2 px-2 rounded transition-colors ${isActive ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+        onClick={() => onSelect(item.precinct)}
+        onMouseEnter={() => onHover && onHover(item.precinctNum)}
+        onMouseLeave={() => onHover && onHover(null)}
+      >
         <span className="text-[11px] font-bold text-gray-800 w-28 truncate flex-shrink-0 flex items-center gap-1" title={item.precinct}>
           {label}
           {item.isTourist && <span className="text-[7px] font-black uppercase tracking-wide px-1 rounded-sm bg-gray-800 text-white" title="Tourist hub — visitor population inflates totals">T</span>}
@@ -1396,6 +1407,7 @@ export default function App() {
   // Map state
   const [mapCrime, setMapCrime] = useState(initialParams.get('mapCrime') || 'all');
   const [mapMode, setMapMode] = useState(initialParams.get('mapMode') || 'rate');
+  const [hoveredPrecinctNum, setHoveredPrecinctNum] = useState(null);
 
   // Scatter plot state for Historic view
   const [xM, setXM] = useState('pov');
@@ -2164,10 +2176,10 @@ export default function App() {
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
                 <div className="lg:col-span-3">
-                  <PrecinctMap precinctRates={precinctRates} onSelect={setActiveGeo} activeGeo={activeGeo} mapMode={mapMode} />
+                  <PrecinctMap precinctRates={precinctRates} onSelect={setActiveGeo} activeGeo={activeGeo} mapMode={mapMode} externalHovered={hoveredPrecinctNum} onHover={setHoveredPrecinctNum} />
                 </div>
                 <div className="lg:col-span-2">
-                  <PrecinctRankingBars precinctRates={precinctRates} onSelect={setActiveGeo} mapMode={mapMode} />
+                  <PrecinctRankingBars precinctRates={precinctRates} onSelect={setActiveGeo} mapMode={mapMode} hoveredPrecinctNum={hoveredPrecinctNum} onHover={setHoveredPrecinctNum} />
                 </div>
               </div>
             </section>
