@@ -1299,7 +1299,7 @@ const DivergingBarChart = ({ data }) => {
   const MAX_BAR_WIDTH = BAR_AREA - 10;
   return (
     <div className="w-full font-sans">
-      <div className="flex justify-between text-[10px] font-black uppercase tracking-widest border-b pb-2 mb-3 text-gray-400">
+      <div className="flex justify-between text-[11px] font-black uppercase tracking-widest border-b pb-2 mb-3 text-gray-400">
         <span>Trajectory (% Change vs Prior Yr)</span>
       </div>
       <svg viewBox={`0 0 ${VIEWBOX_WIDTH} ${totalHeight}`} className="w-full h-auto">
@@ -1326,14 +1326,14 @@ const DivergingBarChart = ({ data }) => {
           const labelFill = labelOutside ? barColor : '#ffffff';
           return (
             <g key={row.name}>
-              <text x={NAME_COL - 8} y={y + 5} textAnchor="end" fontSize="13" fontWeight="bold" fill={VC.black} opacity={isSmallN ? 0.5 : 1}>{row.name}{isSmallN ? '*' : ''}</text>
+              <text x={NAME_COL - 8} y={y + 5} textAnchor="end" fontSize="14" fontWeight="bold" fill={VC.black} opacity={isSmallN ? 0.5 : 1}>{row.name}{isSmallN ? '*' : ''}</text>
               <rect x={isIncrease ? CENTER_X : CENTER_X - barWidth} y={y - 9} width={barWidth} height="20" fill={barColor} fillOpacity={isSmallN ? 0.3 : 1} rx="3" />
-              <text x={labelX} y={y + 5} textAnchor={labelAnchor} fontSize="12" fontWeight="bold" fill={labelFill} opacity={isSmallN ? 0.5 : 1}>{arrow} {Math.abs(row.pct).toFixed(1)}%</text>
+              <text x={labelX} y={y + 5} textAnchor={labelAnchor} fontSize="13" fontWeight="bold" fill={labelFill} opacity={isSmallN ? 0.5 : 1}>{arrow} {Math.abs(row.pct).toFixed(1)}%</text>
             </g>
           );
         })}
       </svg>
-      <div className="flex items-center justify-end gap-4 mt-2 text-[10px] text-gray-500">
+      <div className="flex items-center justify-end gap-4 mt-2 text-[11px] text-gray-500">
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ background: VC.magenta }} />Person</span>
         <span className="flex items-center gap-1"><span className="w-2 h-2 inline-block" style={{ background: VC.indigo }} />Property</span>
         <span className="text-gray-400">· Left of axis = decline, right = rise</span>
@@ -1348,15 +1348,15 @@ const UnifiedMagnitudeChart = ({ data, isTourist, citywideRates, activeGeo }) =>
   const rowHeight = 34;
   const totalHeight = data.length * rowHeight + 16;
   const VIEWBOX_WIDTH = 680;
-  const START_X = 130;
+  const START_X = 150;
   const MAX_BAR_WIDTH = 280;
   return (
     <div className="w-full font-sans">
-      <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest border-b pb-2 mb-3 text-gray-400">
+      <div className="flex justify-between items-center text-[11px] font-black uppercase tracking-widest border-b pb-2 mb-3 text-gray-400">
         <span>Incident Volume</span>
         <div className="hidden sm:flex items-center gap-3">
-          <span className="flex items-center gap-1 text-[9px] font-bold" style={{color: VC.magenta}}><span className="w-2 h-2 rounded-full inline-block" style={{background: VC.magenta}}></span>Person</span>
-          <span className="flex items-center gap-1 text-[9px] font-bold" style={{color: VC.indigo}}><span className="w-2 h-2 inline-block" style={{background: VC.indigo}}></span>Property</span>
+          <span className="flex items-center gap-1 text-[11px] font-bold" style={{color: VC.magenta}}><span className="w-2 h-2 rounded-full inline-block" style={{background: VC.magenta}}></span>Person</span>
+          <span className="flex items-center gap-1 text-[11px] font-bold" style={{color: VC.indigo}}><span className="w-2 h-2 inline-block" style={{background: VC.indigo}}></span>Property</span>
         </div>
       </div>
       <svg viewBox={`0 0 ${VIEWBOX_WIDTH} ${totalHeight}`} className="w-full h-auto">
@@ -1366,12 +1366,12 @@ const UnifiedMagnitudeChart = ({ data, isTourist, citywideRates, activeGeo }) =>
           const color = VIOLENT_CRIMES.includes(row.name) ? VC.magenta : PROPERTY_CRIMES.includes(row.name) ? VC.indigo : VC.periwinkle;
           return (
             <g key={row.name}>
-              <text x={START_X - 14} y={y + 5} textAnchor="end" fontSize="13" fontWeight="bold" fill={VC.black}>{row.name}</text>
+              <text x={START_X - 14} y={y + 5} textAnchor="end" fontSize="14" fontWeight="bold" fill={VC.black}>{row.name}</text>
               <rect x={START_X} y={y - 10} width={barWidth} height="22" fill={color} rx="3" />
-              <text x={START_X + barWidth + 8} y={y + 5} fontSize="13" fontWeight="bold" fill={VC.black}>
+              <text x={START_X + barWidth + 8} y={y + 5} fontSize="14" fontWeight="bold" fill={VC.black}>
                 {row.current.toLocaleString()}
                 {row.currentRate !== null && !isTourist && (
-                  <tspan fontSize="11" fill={VC.charcoal} fontWeight="normal">{' '}({row.currentRate.toFixed(1)}/100k{activeGeo !== 'citywide' && citywideRates[row.name] !== undefined ? ` vs ${citywideRates[row.name].toFixed(1)} CW` : ''})</tspan>
+                  <tspan fontSize="12" fill={VC.charcoal} fontWeight="normal">{' '}({row.currentRate.toFixed(1)}/100k{activeGeo !== 'citywide' && citywideRates[row.name] !== undefined ? ` vs ${citywideRates[row.name].toFixed(1)} CW` : ''})</tspan>
                 )}
               </text>
             </g>
@@ -2063,35 +2063,35 @@ export default function App() {
             <section className="mb-10 grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Story sentence — keeps the AI-style summary but no longer duplicates the hero number */}
               {story && (
-                <div className="md:col-span-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="md:col-span-3 p-5 bg-gray-50 rounded-lg border border-gray-200">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">In context</span>
-                    <span className="text-[10px] font-medium text-gray-500 tabular-nums">
+                    <span className="text-[11px] font-black uppercase tracking-widest text-gray-400">In context</span>
+                    <span className="text-[12px] font-medium text-gray-500 tabular-nums">
                       {activeTab === 'ytd' ? `Through ${parsedData.period?.week_end || '—'}` : `${parsedData.period?.week_start || '—'} – ${parsedData.period?.week_end || '—'}`}
                     </span>
                   </div>
-                  <p className="font-serif text-[15px] leading-relaxed text-gray-800">{story}</p>
+                  <p className="font-serif text-[17px] leading-relaxed text-gray-800">{story}</p>
                 </div>
               )}
               {ineq && (
-                <div className="p-4 bg-white rounded-lg border border-gray-200">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-2">Inequality</div>
-                  <div className="text-[28px] font-black tabular-nums text-black leading-none">{ineq.topCount} : {ineq.bottomCount}</div>
-                  <p className="text-[12px] text-gray-600 mt-2 leading-snug">The {ineq.topCount} highest-crime precincts ({formatPop(ineq.topPop)} residents) match the violent crime total of the {ineq.bottomCount} safest ({formatPop(ineq.bottomPop)} residents).</p>
+                <div className="p-5 bg-white rounded-lg border border-gray-200">
+                  <div className="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Inequality</div>
+                  <div className="text-[32px] font-black tabular-nums text-black leading-none">{ineq.topCount} : {ineq.bottomCount}</div>
+                  <p className="text-[14px] text-gray-600 mt-2.5 leading-relaxed">The {ineq.topCount} highest-crime precincts ({formatPop(ineq.topPop)} residents) match the violent crime total of the {ineq.bottomCount} safest ({formatPop(ineq.bottomPop)} residents).</p>
                 </div>
               )}
               {typeof lethality === 'number' && lethality > 0 && (
-                <div className="p-4 bg-white rounded-lg border border-gray-200">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-2">Lethality gap</div>
-                  <div className="text-[28px] font-black tabular-nums text-black leading-none">1 : {lethality.toFixed(1)}</div>
-                  <p className="text-[12px] text-gray-600 mt-2 leading-snug">Shooting victims per homicide. A widening ratio often reflects better trauma care, not fewer shootings.</p>
+                <div className="p-5 bg-white rounded-lg border border-gray-200">
+                  <div className="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Lethality gap</div>
+                  <div className="text-[32px] font-black tabular-nums text-black leading-none">1 : {lethality.toFixed(1)}</div>
+                  <p className="text-[14px] text-gray-600 mt-2.5 leading-relaxed">Shooting victims per homicide. A widening ratio often reflects better trauma care, not fewer shootings.</p>
                 </div>
               )}
               {spike && typeof spike.pct === 'number' && spike.pct >= 25 && (
-                <div className="p-4 bg-white rounded-lg border border-gray-200">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-2">Sharpest local spike</div>
-                  <div className="text-[28px] font-black tabular-nums text-orange-600 leading-none" aria-label={`Up ${Math.round(spike.pct)} percent`}><span aria-hidden="true">▲</span> {Math.round(spike.pct)}%</div>
-                  <p className="text-[12px] text-gray-600 mt-2 leading-snug">{expandCrimeTitle(spike.crime)} in the {toOrdinalPrecinct(spike.precinct)}.</p>
+                <div className="p-5 bg-white rounded-lg border border-gray-200">
+                  <div className="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Sharpest local spike</div>
+                  <div className="text-[32px] font-black tabular-nums text-orange-600 leading-none" aria-label={`Up ${Math.round(spike.pct)} percent`}><span aria-hidden="true">▲</span> {Math.round(spike.pct)}%</div>
+                  <p className="text-[14px] text-gray-600 mt-2.5 leading-relaxed">{expandCrimeTitle(spike.crime)} in the {toOrdinalPrecinct(spike.precinct)}.</p>
                 </div>
               )}
             </section>
@@ -2100,7 +2100,7 @@ export default function App() {
 
         {/* Sticky in-page section nav — orientation + deep-linking */}
         <nav className="sticky top-0 z-30 bg-white/95 backdrop-blur border-y border-gray-200 -mx-5 sm:-mx-8 px-5 sm:px-8 mb-6 py-2 flex items-center gap-1 overflow-x-auto whitespace-nowrap" aria-label="Page sections">
-          <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 mr-2 flex-shrink-0">Jump to:</span>
+          <span className="text-[11px] font-black uppercase tracking-widest text-gray-400 mr-2 flex-shrink-0">Jump to:</span>
           {[
             ['trends', 'Trends'],
             ['offenses', 'Offenses'],
@@ -2109,27 +2109,27 @@ export default function App() {
             ['transit', 'Transit'],
             ['ledger', 'Ledger'],
           ].map(([id, label]) => (
-            <a key={id} href={`#${id}`} className="text-[10px] font-black uppercase tracking-widest text-gray-600 hover:text-black px-2 py-1 rounded hover:bg-gray-100 transition-colors flex-shrink-0">{label}</a>
+            <a key={id} href={`#${id}`} className="text-[11px] font-black uppercase tracking-widest text-gray-600 hover:text-black px-2 py-1 rounded hover:bg-gray-100 transition-colors flex-shrink-0">{label}</a>
           ))}
           <span className="ml-auto flex items-center gap-3 flex-shrink-0">
-            <button onClick={handleCopyLink} title="Copy a shareable link to this exact view" className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-black transition-colors flex items-center gap-1.5">
+            <button onClick={handleCopyLink} title="Copy a shareable link to this exact view" className="text-[11px] font-black uppercase tracking-widest text-gray-500 hover:text-black transition-colors flex items-center gap-1.5">
               <Link2 size={12} /> {copyLinkLabel}
             </button>
-            <button onClick={() => setAppView('historic')} className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-black transition-colors flex items-center gap-1.5">
+            <button onClick={() => setAppView('historic')} className="text-[11px] font-black uppercase tracking-widest text-gray-400 hover:text-black transition-colors flex items-center gap-1.5">
               <Activity size={12} /> 30-Year View →
             </button>
           </span>
         </nav>
 
         <section id="trends" className="mb-8 pt-4 border-t border-gray-200 scroll-mt-16">
-          <h2 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 mb-5">Trends to Watch</h2>
+          <h2 className="text-[12px] font-black uppercase tracking-[0.15em] text-gray-400 mb-5">Trends to Watch</h2>
           <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8`}>
             {trendCards.map(card => {
               const IconComp = card.icon;
               return (
                 <div key={card.id} className="p-6 bg-gray-50 rounded-sm">
-                  <div className="flex items-center gap-2 mb-3"><IconComp size={16} className="text-black" /><h3 className="text-[10px] font-black uppercase tracking-widest text-black">{card.title}</h3></div>
-                  <div className="font-serif text-[15px] leading-relaxed text-gray-700">{renderMarkdown(card.content)}</div>
+                  <div className="flex items-center gap-2 mb-3"><IconComp size={16} className="text-black" /><h3 className="text-[12px] font-black uppercase tracking-widest text-black">{card.title}</h3></div>
+                  <div className="font-serif text-[16px] leading-relaxed text-gray-700">{renderMarkdown(card.content)}</div>
                   {card.dataViz && card.dataViz}
                 </div>
               );
@@ -2143,8 +2143,8 @@ export default function App() {
             <span className="text-[11px] font-black uppercase tracking-widest text-gray-400 mt-2 md:mt-0">Ranked by Incident Volume</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-6">
-            <div className="max-w-lg"><UnifiedMagnitudeChart data={parsedData.all} isTourist={isTouristPrecinct} citywideRates={parsedData.citywideRates} activeGeo={activeGeo} /></div>
-            <div className="max-w-lg"><DivergingBarChart data={parsedData.all} /></div>
+            <div><UnifiedMagnitudeChart data={parsedData.all} isTourist={isTouristPrecinct} citywideRates={parsedData.citywideRates} activeGeo={activeGeo} /></div>
+            <div><DivergingBarChart data={parsedData.all} /></div>
           </div>
 
           {/* Precinct Choropleth Map + Ranking Bars (citywide only) */}
