@@ -405,6 +405,7 @@ const SearchIcon = (p) => <Icon {...p}><circle cx="11" cy="11" r="8"/><line x1="
 const Navigation = (p) => <Icon {...p}><polygon points="3 11 22 2 13 21 11 13 3 11"/></Icon>;
 const Link2 = (p) => <Icon {...p}><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></Icon>;
 const Download = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Icon>;
+const ChevronDown = (p) => <Icon {...p}><polyline points="6 9 12 15 18 9"/></Icon>;
 const AlertTriangle = (p) => <Icon {...p}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></Icon>;
 const ShieldCheck = (p) => <Icon {...p}><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></Icon>;
 const ArrowLeft = (p) => <Icon {...p}><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></Icon>;
@@ -876,6 +877,7 @@ const TransitCrimeBox = ({ rawData, downloadCSV }) => {
   }, []);
 
   const [sortBy, setSortBy] = useState('volume'); // volume | change | delta | name
+  const [expanded, setExpanded] = useState(false); // per-offense table collapsed by default to save space
 
   if (!transit) return null;
 
@@ -965,12 +967,37 @@ const TransitCrimeBox = ({ rawData, downloadCSV }) => {
         </div>
       </div>
 
-      {/* Unified offense-type table */}
+      {/* Unified offense-type table — collapsed by default to save space */}
       <div>
+        <button
+          onClick={() => setExpanded(v => !v)}
+          aria-expanded={expanded}
+          className="w-full flex items-center justify-between gap-3 text-left group py-1"
+        >
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="flex items-center gap-1.5 text-[12px] font-black uppercase tracking-widest text-gray-600 group-hover:text-black transition-colors">
+              <ChevronDown size={14} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
+              By offense type{breakdown ? ` · ${breakdown.year} vs ${breakdown.priorYear}` : ''}
+            </span>
+            {breakdown && !expanded && (
+              <span className="text-[12px] text-gray-400 normal-case font-medium tracking-normal">
+                {breakdown.rows.filter(r => r.cur > 0 || r.prior > 0).length} offenses · {breakdown.totalCur.toLocaleString()} total
+                <span className="ml-1 tabular-nums" style={{ color: pctColor(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100) }}>
+                  {fmtPct(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100)}
+                </span>
+              </span>
+            )}
+          </div>
+          <span className="text-[11px] font-black uppercase tracking-widest text-gray-400 group-hover:text-black transition-colors whitespace-nowrap flex-shrink-0">
+            {expanded ? 'Hide' : 'Show breakdown'}
+          </span>
+        </button>
+
+        {expanded && (
+        <div className="mt-4">
         <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
           <div>
-            <h4 className="text-[12px] font-black uppercase tracking-widest text-gray-600">By offense type{breakdown ? ` · ${breakdown.year} vs ${breakdown.priorYear}${breakdown.periodLabel && breakdown.periodLabel !== 'Full year' ? ` (${breakdown.periodLabel})` : ''}` : ''}</h4>
-            <p className="text-[12px] text-gray-500 italic mt-1 max-w-2xl">{breakdown?.periodLabel === 'Full year' ? 'Full-year totals' : 'Year-to-date totals through the same calendar day in each year'} from NYPD complaint-level data (NYC Open Data, transit-district filter). Different counting rules from CompStat above, so totals won't match exactly.</p>
+            <p className="text-[12px] text-gray-500 italic max-w-2xl">{breakdown?.periodLabel === 'Full year' ? 'Full-year totals' : 'Year-to-date totals through the same calendar day in each year'}{breakdown?.periodLabel && breakdown.periodLabel !== 'Full year' ? ` (${breakdown.periodLabel})` : ''} from NYPD complaint-level data (NYC Open Data, transit-district filter). Different counting rules from CompStat above, so totals won't match exactly.</p>
           </div>
           {breakdown && (
             <div className="flex items-start gap-3">
@@ -1052,12 +1079,14 @@ const TransitCrimeBox = ({ rawData, downloadCSV }) => {
             })}
           </div>
         )}
-      </div>
 
-      <p className="text-[12px] text-gray-400 mt-6 italic leading-relaxed max-w-3xl">
-        CompStat live = weekly NYPD CompStat feed for Transit Bureau (all major felonies combined, through week ending {period.week_end || '?'}).
-        By-offense totals = NYC Open Data complaint-level extract filtered to records with a transit-district code, most recent complete calendar year vs prior. The two sources use different counting rules, so the aggregates will not match exactly.
-      </p>
+        <p className="text-[12px] text-gray-400 mt-6 italic leading-relaxed max-w-3xl">
+          CompStat live = weekly NYPD CompStat feed for Transit Bureau (all major felonies combined, through week ending {period.week_end || '?'}).
+          By-offense totals = NYC Open Data complaint-level extract filtered to records with a transit-district code, most recent complete calendar year vs prior. The two sources use different counting rules, so the aggregates will not match exactly.
+        </p>
+        </div>
+        )}
+      </div>
     </section>
   );
 };
