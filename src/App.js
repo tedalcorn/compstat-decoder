@@ -2249,12 +2249,20 @@ export default function App() {
               </button>
             </div>
           </div>
+          {activeGeo === 'citywide' && (
+            <div className="hidden md:flex items-center gap-5 mb-4 text-[11px] text-gray-500">
+              <span className="font-black uppercase tracking-widest text-[10px] text-gray-400">How to read the spark&shy;line:</span>
+              <span className="flex items-center gap-1.5"><svg width="22" height="10"><polyline points="1,7 6,5 11,6 16,2 21,3" fill="none" stroke="#9ca3af" strokeWidth="1.5" /></svg> Annual count, ~2013–now</span>
+              <span className="flex items-center gap-1.5"><span className="inline-block w-5 h-2.5 rounded-sm" style={{ background: '#dbeafe' }} /> 2017–19 pre-pandemic range</span>
+              <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: VC.green }} /> This year (projected to full year)</span>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[750px]">
               <thead>
                 <tr className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-gray-200">
                   <th className="py-3">Crime Category</th>
-                  <th className="py-3 text-center hidden md:table-cell" title="Multi-year trajectory with pre-pandemic (2017–19) reference band shaded blue. Dot = current annualized projection.">{activeGeo === 'citywide' ? <span>Trajectory <span className="text-gray-300">·</span> Pre-pandemic context</span> : 'YoY'}</th>
+                  <th className="py-3 text-center hidden md:table-cell" title="Each line is the offense's annual citywide count since ~2013. The shaded blue band is the 2017–19 pre-pandemic range. The dot is this year, projected to a full-year total. Dot is green when below last year, orange when above.">{activeGeo === 'citywide' ? <span>Annual count since '13</span> : 'YoY'}</th>
                   <th className="py-3 text-right">Prior Year</th>
                   <th className="py-3 text-right">Current</th>
                   <th className="py-3 text-right">Change</th>
