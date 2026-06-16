@@ -829,16 +829,17 @@ const TRANSIT_HOMICIDES = {
     { year: 2022, count: 10 },
     { year: 2023, count: 5 },
     { year: 2024, count: 10 },
+    { year: 2025, count: 4 },
   ],
-  // NYPD does not publish a single official full-year transit-murder figure: its year-end
-  // release itemizes only transit INDEX crime (2,211 vs 2,337 in 2024, -5.4%), not murder.
-  // The NYPD Transit Bureau's last official 2024 murder count was 9 through November (vs 5
-  // same period 2023); December's high-profile subway killings bring the widely-reported
-  // full-year total to 10. 1997-2019 averaged roughly one to two transit murders per year.
-  context: 'NYPD does not itemize transit murder in its year-end release. The Transit Bureau counted 9 transit murders through November 2024 (vs 5 in the same period of 2023); December killings bring the widely-reported full-year total to 10. From 1997 to 2019 the system averaged roughly one to two homicides per year.',
+  // Full-year NYPD Transit Bureau counts. 2025 = 4 transit murders, down 60% from 2024's 10
+  // and the lowest in five years (NYPD year-end, reported by amNewYork); Q1 2025 saw zero,
+  // the first time in seven years. 2022's 10 was a 25-year high. NYPD's year-end release
+  // itemizes only transit INDEX crime, not murder, so these come from Transit Bureau monthly
+  // reports and year-end reporting. 1997-2019 averaged roughly one to two murders per year.
+  context: '2025 closed with 4 transit murders, down 60% from 2024 and the lowest in five years; the first quarter of 2025 saw none, the first time in seven years. From 1997 to 2019 the system averaged roughly one to two homicides per year.',
   sources: [
+    { label: 'amNewYork (NYPD 2025 year-end transit crime)', url: 'https://www.amny.com/news/subway-crime-drop-2025-nypd/' },
     { label: 'Vital City, subway safety', url: 'https://www.vitalcitynyc.org/what-the-data-show-about-subway-safety/' },
-    { label: 'Gothamist (NYPD Transit Bureau figures)', url: 'https://gothamist.com/news/3-murders-on-nyc-subways-this-year-come-amid-costly-nypd-surge-vast-surveillance' },
     { label: 'NYPD 2024 year-end crime statistics', url: 'https://www.nyc.gov/site/nypd/news/pr001/crime-down-across-new-york-city-2024-3-662-fewer-crimes' },
   ],
 };
