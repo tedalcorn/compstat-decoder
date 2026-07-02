@@ -436,11 +436,12 @@ const AnchorLink = ({ id, label, size = 14, className = "" }) => {
       onClick={copy}
       title={`Copy a direct link to "${label}"`}
       aria-label={`Copy a direct link to the ${label} section`}
-      className={`inline-flex items-center align-middle text-gray-300 hover:text-black transition-colors ${className}`}
+      className={`group/anchor inline-flex items-center gap-1 rounded border align-middle px-1.5 py-0.5 font-sans normal-case tracking-normal transition-colors ${copied ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-300 bg-gray-50 text-gray-500 hover:text-black hover:border-gray-500 hover:bg-gray-100'} ${className}`}
     >
-      {copied
-        ? <span className="text-[10px] font-black uppercase tracking-widest text-green-600">Link copied</span>
-        : <Link2 size={size} />}
+      <Link2 size={size} />
+      <span className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap hidden sm:group-hover/anchor:inline">
+        {copied ? 'Copied!' : 'Copy link'}
+      </span>
     </a>
   );
 };
