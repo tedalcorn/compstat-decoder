@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/compstat-ledger/static/css/main.c3453966.css",
+    "main.js": "/compstat-ledger/static/js/main.b2009a8c.js",
+    "index.html": "/compstat-ledger/index.html",
+    "main.c3453966.css.map": "/compstat-ledger/static/css/main.c3453966.css.map",
+    "main.b2009a8c.js.map": "/compstat-ledger/static/js/main.b2009a8c.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.c3453966.css",
+    "static/js/main.b2009a8c.js"
+  ]
+}
