@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { geoPath, geoMercator, geoContains } from 'd3-geo';
 import precinctGeoJSON from '../data/nyc_precincts.json';
 import councilData from '../data/council_districts.json';
+import vcLogo from '../vitalcity-logo.png';
 import {
   PRECINCT_NEIGHBORHOODS, MAJOR_VIOLENT, MAJOR_PROPERTY, VOLATILITY_THRESHOLD,
   safeNum, pctColor, dirPct, signedCount, expandCrime,
@@ -634,7 +635,11 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
       {/* Print-only one-page district report (Download PDF -> browser Save as PDF) */}
       <div className="hidden print:flex print:flex-col text-black leading-tight" style={{ height: '9.55in', overflow: 'hidden' }}>
         <div className="flex justify-between items-end border-b-[3px] border-black pb-2 mb-3 flex-shrink-0">
-          <div className="text-[26px] font-black tracking-tight" style={{ fontFamily: 'system-ui, sans-serif' }}>NYC CompStat Decoder</div>
+          <div className="flex items-end gap-3">
+            <img src={vcLogo} alt="Vital City" style={{ height: '20px', width: 'auto', marginBottom: '4px' }} />
+            <span style={{ width: '1px', height: '26px', background: '#000', marginBottom: '2px' }} />
+            <div className="text-[26px] font-black tracking-tight leading-none" style={{ fontFamily: 'system-ui, sans-serif' }}>NYC CompStat Decoder</div>
+          </div>
           <div className="text-right leading-none" style={{ fontFamily: 'system-ui, sans-serif' }}>
             <div className="text-[8px] font-black uppercase tracking-widest text-gray-500 mb-0.5">Crime data through</div>
             <div className="text-[19px] font-black tabular-nums">{period.week_end ? new Date(period.week_end).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—'}</div>

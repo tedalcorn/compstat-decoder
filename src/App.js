@@ -6,6 +6,7 @@ import {
   SearchIcon, Navigation, RefreshCw, Activity,
   RTCI_CSV_URL, parseRTCIcsv, RTCI_FALLBACK, RTCI_FALLBACK_PERIOD, RTCI_FALLBACK_UPDATED,
 } from './shared';
+import vcLogo from './vitalcity-logo.png';
 import HistoricView from './HistoricView';
 import Headlines from './tabs/Headlines';
 import CrimeNumbers from './tabs/CrimeNumbers';
@@ -353,13 +354,19 @@ export default function App() {
         {/* Single-row navigation: brand, section tabs, geography, period toggle */}
         <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200 -mx-5 sm:-mx-8 px-5 sm:px-8 mb-8 py-2 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-x-2 gap-y-1.5 print:hidden">
           <div className="flex flex-col sm:flex-row sm:items-center gap-y-0.5 sm:gap-1 w-full sm:w-auto min-w-0">
-          <button
-            onClick={() => { setActiveGeo('citywide'); setMainTab('headlines'); }}
-            aria-pressed={mainTab === 'headlines'}
-            title="Home — citywide headlines"
-            className={`self-start text-[10px] font-black uppercase tracking-wider flex-shrink-0 sm:mr-2 py-1.5 border-b-2 transition-colors ${mainTab === 'headlines' ? 'border-black text-black' : 'border-transparent text-black hover:text-indigo-600'}`}>
-            NYC CompStat Decoder
-          </button>
+          <div className="flex items-center gap-2 self-start flex-shrink-0 sm:mr-2">
+            <a href="https://www.vitalcitynyc.org/" target="_blank" rel="noopener noreferrer" title="Vital City" className="flex-shrink-0 flex items-center">
+              <img src={vcLogo} alt="Vital City" className="h-[13px] w-auto" />
+            </a>
+            <span className="w-px h-4 bg-gray-300 flex-shrink-0" />
+            <button
+              onClick={() => { setActiveGeo('citywide'); setMainTab('headlines'); }}
+              aria-pressed={mainTab === 'headlines'}
+              title="Home — citywide headlines"
+              className={`text-[10px] font-black uppercase tracking-wider flex-shrink-0 py-1.5 border-b-2 transition-colors ${mainTab === 'headlines' ? 'border-black text-black' : 'border-transparent text-black hover:text-indigo-600'}`}>
+              NYC CompStat Decoder
+            </button>
+          </div>
           <nav className="flex items-center justify-between sm:justify-start w-full sm:w-auto" aria-label="Sections">
             {MAIN_TABS.map(([key, label]) => (
               <button
