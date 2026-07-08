@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { pctColor, dirPct, dirCount, Download } from '../shared';
+import { pctColor, dirPct, signedCount, Download } from '../shared';
 
 /* ------------------------------------------------------------------ */
 /* TRANSIT TAB                                                         */
@@ -231,7 +231,7 @@ export default function Transit({ rawData, downloadCSV }) {
                   </div>
                   <span className="flex-1 sm:flex-none w-16 text-right tabular-nums font-black text-black">{r.cur.toLocaleString()}</span>
                   <span className="w-56 text-right tabular-nums hidden sm:inline-block">
-                    <span className="font-bold" style={{ color: pctColor(r.diff) }}>{dirCount(r.diff, 'incidents')}</span>
+                    <span className="font-bold" style={{ color: pctColor(r.diff) }}>{signedCount(r.diff)}</span>
                     <span className="text-gray-400 font-normal text-[12px]"> (vs. {r.prior.toLocaleString()} in {yy(breakdown.priorYear)})</span>
                   </span>
                   <span className="w-24 text-right tabular-nums font-bold" style={{ color: pctColor(r.pct) }}>{dirPct(r.pct)}</span>
@@ -243,7 +243,7 @@ export default function Transit({ rawData, downloadCSV }) {
               {downloadCSV && (
                 <button
                   onClick={() => {
-                    const header = ['Offense', `${breakdown.year}`, `${breakdown.priorYear}`, 'YTD change (incidents)', 'YTD change (%)'];
+                    const header = ['Offense', `${breakdown.year}`, `${breakdown.priorYear}`, 'YTD change (offenses)', 'YTD change (%)'];
                     const data = breakdown.rows.map(r => [r.label, r.cur, r.prior, r.diff, typeof r.pct === 'number' ? r.pct.toFixed(2) : '']);
                     downloadCSV(`transit_crime_${breakdown.year}_vs_${breakdown.priorYear}.csv`, [header, ...data]);
                   }}

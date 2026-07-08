@@ -4,7 +4,7 @@ import precinctGeoJSON from '../data/nyc_precincts.json';
 import councilData from '../data/council_districts.json';
 import {
   PRECINCT_NEIGHBORHOODS, MAJOR_VIOLENT, MAJOR_PROPERTY, VOLATILITY_THRESHOLD,
-  safeNum, pctColor, dirPct, expandCrime,
+  safeNum, pctColor, dirPct, signedCount, expandCrime,
   toOrdinalPrecinct, SearchIcon, ChevronDown, Download,
 } from '../shared';
 
@@ -474,18 +474,12 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
   // On narrow phones the full "Up 11.9%" phrasing plus the count subline is too wide to keep
   // all three measures, so we fall back to a compact signed "+11.9%" and drop the subline.
   const pctCompact = (v) => (v > 0 ? '+' : '') + v.toFixed(1).replace(/\.0$/, '') + '%';
-  // Signed offense count, labeled so it's clear what's being counted: "+36 offenses", "-150 offenses".
-  const signedOffenses = (v) => {
-    const n = Math.round(v);
-    if (n === 0) return 'No change';
-    return `${n > 0 ? '+' : '-'}${Math.abs(n).toLocaleString()} offense${Math.abs(n) === 1 ? '' : 's'}`;
-  };
   const changeCell = (t, key = '') => (
     <td key={key} className="py-2.5 pl-2 sm:pl-3 text-right tabular-nums text-[13px] font-bold whitespace-nowrap" style={{ color: pctColor(t.pct) }}>
       {typeof t.pct === 'number'
         ? (<><span className="sm:hidden">{pctCompact(t.pct)}</span><span className="hidden sm:inline">{dirPct(t.pct)}</span></>)
         : '—'}
-      {t.diff != null && <div className="hidden sm:block text-[10px] font-normal text-gray-400">{signedOffenses(t.diff)}</div>}
+      {t.diff != null && <div className="hidden sm:block text-[10px] font-normal text-gray-400">{signedCount(t.diff)}</div>}
     </td>
   );
 

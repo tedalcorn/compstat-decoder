@@ -240,6 +240,14 @@ export const dirCount = (v, unit = '') => {
   const u = unit && Math.abs(v) === 1 ? unit.replace(/s$/, '') : unit; // singular at 1
   return `${v > 0 ? 'Up' : 'Down'} ${Math.abs(v).toLocaleString()}${u ? ' ' + u : ''}`;
 };
+// Signed, labeled count: "-3,365 offenses" / "+374 offenses" / "-1 offense" / "No change".
+export const signedCount = (v, unit = 'offenses') => {
+  if (typeof v !== 'number') return '—';
+  const n = Math.round(v);
+  if (n === 0) return 'No change';
+  const u = Math.abs(n) === 1 ? unit.replace(/s$/, '') : unit; // singular at 1
+  return `${n > 0 ? '+' : '-'}${Math.abs(n).toLocaleString()} ${u}`;
+};
 
 // Expand compact CompStat crime labels to friendlier names for prose.
 const EXPANDED_CRIME_NAMES = {

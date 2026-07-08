@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import crimeHistory from '../data/crime_history.json';
 import {
-  VC, VOLATILITY_THRESHOLD, offenseClass, expandCrimeTitle, dirPct, dirCount,
+  VC, VOLATILITY_THRESHOLD, offenseClass, expandCrimeTitle, dirPct, signedCount,
   getHistoricalContext, ContextSparkline, Download,
 } from '../shared';
 
@@ -121,7 +121,7 @@ export default function CrimeNumbers({ parsedData, activeTab, activeGeo, isTouri
                   </td>
                   <td className={`py-1 pl-3 text-right tabular-nums text-sm font-black text-black ${isVolatile ? 'opacity-50' : ''}`}>{item.current.toLocaleString()}</td>
                   <td className={`py-1 pl-8 text-right tabular-nums text-sm hidden sm:table-cell ${isVolatile ? 'opacity-50' : ''}`}>
-                    <span className={`font-bold ${item.diff > 0 ? 'text-orange-700' : item.diff < 0 ? 'text-green-700' : 'text-gray-500'}`}>{dirCount(item.diff, 'offenses')}</span>
+                    <span className={`font-bold ${item.diff > 0 ? 'text-orange-700' : item.diff < 0 ? 'text-green-700' : 'text-gray-500'}`}>{signedCount(item.diff)}</span>
                     <span className="text-gray-400 font-normal text-[12px]"> (from {item.prior.toLocaleString()} in {colPrior})</span>
                   </td>
                   <td className={`py-1 pl-3 sm:pl-8 text-right text-xs font-bold tabular-nums whitespace-nowrap ${item.pct > 0 ? 'text-orange-600' : item.pct < 0 ? 'text-green-600' : 'text-gray-500'}`}>
