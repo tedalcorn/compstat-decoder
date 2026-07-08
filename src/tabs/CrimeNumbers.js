@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import crimeHistory from '../data/crime_history.json';
 import {
-  VC, VOLATILITY_THRESHOLD, offenseClass, expandCrimeTitle,
+  VC, VOLATILITY_THRESHOLD, offenseClass, expandCrimeTitle, dirPct, dirCount,
   getHistoricalContext, ContextSparkline, Download,
 } from '../shared';
 
@@ -104,7 +104,7 @@ export default function CrimeNumbers({ parsedData, activeTab, activeGeo, isTouri
             <tr className="border-b-2 border-black">
               <SortTh field="name" align="left" defaultDir="asc">Offense (Crime type)</SortTh>
               <SortTh field="current">{colYear}</SortTh>
-              <SortTh field="diff">Year-on-year change (incidents)</SortTh>
+              <SortTh field="diff">Year-on-year change</SortTh>
               <SortTh field="pct">Year-on-year change (%)</SortTh>
               {isCitywide && <th className="py-2 text-center hidden md:table-cell"><span className="text-[10px] font-black uppercase tracking-widest text-gray-400 cursor-help underline decoration-dotted decoration-gray-300 underline-offset-[3px]" title={TREND_TOOLTIP}>Trend since {crimeHistory.citywide[0].y}</span></th>}
             </tr>
@@ -122,13 +122,11 @@ export default function CrimeNumbers({ parsedData, activeTab, activeGeo, isTouri
                   </td>
                   <td className={`py-1 text-right tabular-nums text-sm font-black text-black ${isVolatile ? 'opacity-50' : ''}`}>{item.current.toLocaleString()}</td>
                   <td className={`py-1 pl-8 text-right tabular-nums text-sm ${isVolatile ? 'opacity-50' : ''}`}>
-                    <span className={`font-bold ${item.diff > 0 ? 'text-orange-700' : item.diff < 0 ? 'text-green-700' : 'text-gray-500'}`}>{item.diff > 0 ? '+' : ''}{item.diff.toLocaleString()}</span>
+                    <span className={`font-bold ${item.diff > 0 ? 'text-orange-700' : item.diff < 0 ? 'text-green-700' : 'text-gray-500'}`}>{dirCount(item.diff, 'offenses')}</span>
                     <span className="text-gray-400 font-normal text-[12px]"> (from {item.prior.toLocaleString()} in {colPrior})</span>
                   </td>
                   <td className={`py-1 pl-8 text-right text-xs font-bold tabular-nums ${item.pct > 0 ? 'text-orange-600' : item.pct < 0 ? 'text-green-600' : 'text-gray-500'}`}>
-                    <span aria-label={`${item.pct > 0 ? 'Up' : 'Down'} ${Math.abs(item.pct ?? 0).toFixed(1)} percent`}>
-                      <span aria-hidden="true">{item.pct > 0 ? '▲' : item.pct < 0 ? '▼' : '•'}</span> {typeof item.pct === 'number' ? Math.abs(item.pct).toFixed(1) + '%' : '—'}
-                    </span>
+                    {dirPct(item.pct)}
                   </td>
                   {isCitywide && (
                     <td className="py-1 pl-6 text-right hidden md:table-cell">

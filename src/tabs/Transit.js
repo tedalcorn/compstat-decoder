@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { formatPct, pctColor, Download } from '../shared';
+import { pctColor, dirPct, dirCount, Download } from '../shared';
 
 /* ------------------------------------------------------------------ */
 /* TRANSIT TAB                                                         */
@@ -168,7 +168,7 @@ export default function Transit({ rawData, downloadCSV }) {
         <h2 className="text-2xl sm:text-3xl font-black leading-[1.12] tracking-tight text-black">
           On subways and buses, major felony incidents are {(ytd.pct_change ?? 0) > 0 ? 'up' : 'down'} {Math.abs(ytd.pct_change ?? 0).toFixed(1)}% year-to-date{typeof ytd.current_year === 'number' && typeof ytd.prior_year === 'number' ? ` (${ytd.current_year.toLocaleString()} in ${yy(endYear)} YTD vs ${ytd.prior_year.toLocaleString()} in ${yy(endYear - 1)} YTD)` : ''}.
         </h2>
-        <div className="lg:min-w-[240px]">
+        <div className="lg:min-w-[260px] p-4 bg-gray-50 rounded-sm border border-gray-200">
           <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Major felony incidents</div>
           <table className="w-full text-[13px] border-collapse">
             <tbody>
@@ -178,10 +178,10 @@ export default function Transit({ rawData, downloadCSV }) {
                 { label: 'vs. 2 years ago', count: null, pct: hist['2_yr_pct'] },
                 { label: 'vs. 14 years ago', count: null, pct: hist['14_yr_pct'] },
               ].map((r, i, arr) => (
-                <tr key={r.label} className={i < arr.length - 1 ? 'border-b border-gray-100' : ''}>
+                <tr key={r.label} className={i < arr.length - 1 ? 'border-b border-gray-200' : ''}>
                   <td className="py-1.5 pr-4 text-[12px] text-gray-600 whitespace-nowrap">{r.label}</td>
                   <td className="py-1.5 text-right tabular-nums font-black text-black">{typeof r.count === 'number' ? r.count.toLocaleString() : ''}</td>
-                  <td className="py-1.5 pl-3 text-right tabular-nums font-bold" style={{ color: pctColor(r.pct) }}>{formatPct(r.pct)}</td>
+                  <td className="py-1.5 pl-3 text-right tabular-nums font-bold whitespace-nowrap" style={{ color: pctColor(r.pct) }}>{dirPct(r.pct)}</td>
                 </tr>
               ))}
             </tbody>
@@ -202,8 +202,8 @@ export default function Transit({ rawData, downloadCSV }) {
                 <span className="flex items-center gap-1.5"><span className="inline-block w-4 h-[7px] bg-gray-300 rounded-sm" /> {breakdown.priorYear}</span>
               </div>
               <span className="w-16 text-right"><SortHeader field="volume">{breakdown.year}</SortHeader></span>
-              <span className="w-52 text-right"><SortHeader field="delta">YTD change (incidents)</SortHeader></span>
-              <span className="w-20 text-right"><SortHeader field="change">YTD change (%)</SortHeader></span>
+              <span className="w-56 text-right"><SortHeader field="delta">YTD change</SortHeader></span>
+              <span className="w-24 text-right"><SortHeader field="change">YTD change (%)</SortHeader></span>
             </div>
             {sorted.map(r => {
               // Bars below this threshold render as unreadable slivers; hide them entirely
@@ -216,7 +216,6 @@ export default function Transit({ rawData, downloadCSV }) {
               // Minimum visible width for bars that DO render, so they aren't 1-pixel slivers.
               const curW = showCurBar ? Math.max(rawCurW, 2) : 0;
               const priW = showPriBar ? Math.max(rawPriW, 2) : 0;
-              const deltaStr = `${r.diff > 0 ? '+' : ''}${r.diff.toLocaleString()}`;
               return (
                 <div key={r.name} className="flex items-center gap-4 py-2 text-[14px] border-b border-gray-50 hover:bg-gray-50/60 -mx-2 px-2 rounded-sm transition-colors">
                   <span className="w-40 flex-shrink-0 font-bold text-gray-800 truncate" title={r.label}>{r.label}</span>
@@ -227,11 +226,11 @@ export default function Transit({ rawData, downloadCSV }) {
                     </div>
                   </div>
                   <span className="w-16 text-right tabular-nums font-black text-black">{r.cur.toLocaleString()}</span>
-                  <span className="w-52 text-right tabular-nums">
-                    <span className="font-bold" style={{ color: pctColor(r.diff) }}>{deltaStr}</span>
-                    <span className="text-gray-400 font-normal text-[12px]"> (compared to {r.prior.toLocaleString()} in {yy(breakdown.priorYear)})</span>
+                  <span className="w-56 text-right tabular-nums">
+                    <span className="font-bold" style={{ color: pctColor(r.diff) }}>{dirCount(r.diff, 'incidents')}</span>
+                    <span className="text-gray-400 font-normal text-[12px]"> (vs. {r.prior.toLocaleString()} in {yy(breakdown.priorYear)})</span>
                   </span>
-                  <span className="w-20 text-right tabular-nums font-bold" style={{ color: pctColor(r.pct) }}>{formatPct(r.pct)}</span>
+                  <span className="w-24 text-right tabular-nums font-bold" style={{ color: pctColor(r.pct) }}>{dirPct(r.pct)}</span>
                 </div>
               );
             })}
@@ -254,7 +253,7 @@ export default function Transit({ rawData, downloadCSV }) {
                 <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">{breakdown.periodLabel === 'Full year' ? 'Annual total' : 'Period total'}</span>
                 <span className="text-[20px] font-black tabular-nums text-black leading-none">{breakdown.totalCur.toLocaleString()}</span>
                 <span className="text-[12px] tabular-nums" style={{ color: pctColor(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100) }}>
-                  {formatPct(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100)} vs {breakdown.totalPri.toLocaleString()} in {yy(breakdown.priorYear)}
+                  {dirPct(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100)} vs {breakdown.totalPri.toLocaleString()} in {yy(breakdown.priorYear)}
                 </span>
               </div>
             </div>

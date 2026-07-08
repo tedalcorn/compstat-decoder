@@ -6,7 +6,7 @@ import {
   CW, VC, MAJOR_VIOLENT, MAJOR_PROPERTY, PATROL_BOROUGH_NAMES, PRECINCT_NEIGHBORHOODS,
   formatPop, formatGeoName, expandCrime, expandCrimeTitle, toOrdinalPrecinct,
   getPrePandemicRecovery, precinctHistorySeries, precinctPatrolBorough, numWord,
-  calcPct,
+  calcPct, dirPct,
   RTCI_GROUPS, RTCI_FALLBACK, RTCI_FALLBACK_PERIOD, RTCI_FALLBACK_UPDATED, rtciRate,
   Users, Download,
 } from '../shared';
@@ -27,20 +27,21 @@ const LocatorMap = ({ activeGeo, width = 190, height = 150 }) => {
   const activeNum = isPrecinct ? parseInt(activeGeo, 10) : null;
   const activeBoro = isBorough ? activeGeo : (activeNum ? precinctPatrolBorough(activeGeo) : null);
 
-  const label = activeGeo === 'citywide' ? 'New York City'
+  const isCitywide = activeGeo === 'citywide';
+  const label = isCitywide ? 'New York City'
     : isBorough ? activeGeo
     : `${activeGeo}${PRECINCT_NEIGHBORHOODS[activeGeo] ? ` · ${PRECINCT_NEIGHBORHOODS[activeGeo]}` : ''}`;
 
   return (
     <div className="p-4 bg-gray-50 rounded-sm border border-gray-200">
-      <h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-400 mb-2">Where you are</h3>
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto">
         {precinctGeoJSON.features.map(f => {
           const num = parseInt(f.properties.precinct, 10);
           const boro = precinctPatrolBorough(String(num));
           let fill = '#e5e7eb';
-          if (activeNum && num === activeNum) fill = VC.magenta;
-          else if (activeBoro && boro === activeBoro) fill = activeNum ? '#f4c4d3' : VC.magenta;
+          if (isCitywide) fill = VC.magenta;                                  // whole city lit by default
+          else if (activeNum && num === activeNum) fill = VC.magenta;         // the selected precinct
+          else if (activeBoro && boro === activeBoro) fill = activeNum ? '#f4c4d3' : VC.magenta; // its borough
           return <path key={num} d={pathFn(f)} fill={fill} stroke="#fff" strokeWidth={0.4} />;
         })}
       </svg>
@@ -310,12 +311,6 @@ export default function Headlines({ parsedData, hotspots, rawData, activeTab, ac
   const yy = (y) => `’${String(y).slice(-2)}`;
   const periodWord = activeTab === 'ytd' ? 'YTD' : 'this week';
 
-  const fmtTrendPct = (pct) => {
-    if (typeof pct !== 'number') return '—';
-    const arrow = pct > 0 ? '▲' : pct < 0 ? '▼' : '•';
-    return `${arrow} ${Math.abs(pct).toFixed(1)}%`;
-  };
-
   const statLines = [
     { label: 'Major crime index', sub: 'All 7 major felonies', cur: totals.mCur, pri: totals.mPri, pct: totals.mPct },
     { label: 'Violent index', sub: 'Murder, rape, robbery, felony assault', cur: violent.cur, pri: violent.pri, pct: violent.pct },
@@ -328,50 +323,57 @@ export default function Headlines({ parsedData, hotspots, rawData, activeTab, ac
     <div>
       {isTouristPrecinct && <div className="mb-6 p-4 bg-gray-50 border-l-4 border-gray-400 text-sm font-serif italic text-gray-700"><strong>Context Note:</strong> {formatGeoName(activeGeo)} is a high-traffic hub with few residents; crime rates primarily reflect commercial/visitor density.</div>}
 
-      {/* Topline trends, in a fixed hierarchy: overall index, then its violent and property subsets */}
-      <section className="mb-8 relative">
-        {activeGeo === 'citywide' && (() => {
-          const cwTotals = CW.map(d => d.BU + d.FA + d.GA + d.GL + d.MU + d.RA + d.RO);
-          const maxT = Math.max(...cwTotals);
-          const w = 220; const h = 56;
-          const pts = cwTotals.map((v, i) => `${(i / (cwTotals.length - 1)) * w},${h - (v / maxT) * h}`).join(' ');
-          const area = pts + ` ${w},${h} 0,${h}`;
-          return (
-            <svg width={w} height={h} className="absolute bottom-0 left-0 opacity-[0.07] pointer-events-none" preserveAspectRatio="none">
-              <polygon points={area} fill={VC.black} />
-            </svg>
-          );
-        })()}
-        <h1 className="text-[22px] sm:text-[26px] lg:text-[29px] font-black leading-[1.15] tracking-tight mb-5 text-black">
-          Major index offenses are {totals.diff > 0 ? 'up' : 'down'} {Math.abs(totals.mPct).toFixed(1)}% {activeTab === 'ytd' ? 'year-to-date' : 'this week'} {activeGeo === 'citywide' ? '' : `in the ${activeGeo} `}vs. prior year.
-        </h1>
-        <div className="divide-y divide-gray-100 border-y border-gray-200 max-w-4xl">
-          {statLines.map((s, i) => (
-            <div key={s.label} className="flex items-baseline gap-4 py-2.5 flex-wrap">
-              <span className={`w-40 flex-shrink-0 ${i === 0 ? 'text-[14px] font-black' : 'text-[13px] font-bold text-gray-700 pl-4'}`}>{s.label}</span>
-              <span className={`tabular-nums font-black w-28 whitespace-nowrap ${i === 0 ? 'text-[22px]' : 'text-[17px]'}`} style={{ color: (s.pct ?? 0) > 0 ? '#c2410c' : (s.pct ?? 0) < 0 ? '#15803d' : '#374151' }}>
-                {fmtTrendPct(s.pct)}
-              </span>
-              <span className="text-[13px] text-gray-600 tabular-nums whitespace-nowrap">
-                {s.pri.toLocaleString()} in {yy(endYear - 1)} {periodWord}
-                <span className="mx-1.5 font-bold" style={{ color: (s.pct ?? 0) > 0 ? '#c2410c' : (s.pct ?? 0) < 0 ? '#15803d' : '#6b7280' }} aria-label={(s.pct ?? 0) > 0 ? 'rose to' : 'fell to'}>
-                  {(s.pct ?? 0) > 0 ? '↗' : (s.pct ?? 0) < 0 ? '↘' : '→'}
+      <h1 className="text-[22px] sm:text-[26px] lg:text-[29px] font-black leading-[1.15] tracking-tight mb-5 text-black">
+        Major index offenses are {totals.diff > 0 ? 'up' : 'down'} {Math.abs(totals.mPct).toFixed(1)}% {activeTab === 'ytd' ? 'year-to-date' : 'this week'} {activeGeo === 'citywide' ? '' : `in the ${activeGeo} `}vs. prior year.
+      </h1>
+
+      {/* Topline trends (left) with the locator map aligned to the top of the table (right) */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 items-start">
+        <div className="lg:col-span-2 relative">
+          {activeGeo === 'citywide' && (() => {
+            const cwTotals = CW.map(d => d.BU + d.FA + d.GA + d.GL + d.MU + d.RA + d.RO);
+            const maxT = Math.max(...cwTotals);
+            const w = 220; const h = 56;
+            const pts = cwTotals.map((v, i) => `${(i / (cwTotals.length - 1)) * w},${h - (v / maxT) * h}`).join(' ');
+            const area = pts + ` ${w},${h} 0,${h}`;
+            return (
+              <svg width={w} height={h} className="absolute bottom-8 left-0 opacity-[0.07] pointer-events-none" preserveAspectRatio="none">
+                <polygon points={area} fill={VC.black} />
+              </svg>
+            );
+          })()}
+          <div className="divide-y divide-gray-100 border-y border-gray-200">
+            {statLines.map((s, i) => (
+              <div key={s.label} className="flex items-baseline gap-5 py-2.5">
+                {/* Descriptor sits light under the term so it reads as its definition */}
+                <div className="w-52 flex-shrink-0">
+                  <div className={i === 0 ? 'text-[15px] font-black leading-tight' : 'text-[13px] font-bold text-gray-700 leading-tight'}>{s.label}</div>
+                  <div className="text-[11px] text-gray-400 leading-tight mt-0.5">{s.sub}</div>
+                </div>
+                <span className={`tabular-nums font-black w-28 whitespace-nowrap ${i === 0 ? 'text-[20px]' : 'text-[16px]'}`} style={{ color: (s.pct ?? 0) > 0 ? '#c2410c' : (s.pct ?? 0) < 0 ? '#15803d' : '#374151' }}>
+                  {dirPct(s.pct)}
                 </span>
-                <strong className="font-black text-gray-900">{s.cur.toLocaleString()} in {yy(endYear)} {periodWord}</strong>
-              </span>
-              <span className="text-[11px] text-gray-400 italic hidden lg:inline">{s.sub}</span>
-            </div>
-          ))}
+                <span className="text-[13px] text-gray-600 tabular-nums">
+                  {s.pri.toLocaleString()} in {yy(endYear - 1)} {periodWord}
+                  <span className="mx-1.5 font-bold" style={{ color: (s.pct ?? 0) > 0 ? '#c2410c' : (s.pct ?? 0) < 0 ? '#15803d' : '#6b7280' }} aria-label={(s.pct ?? 0) > 0 ? 'rose to' : 'fell to'}>
+                    {(s.pct ?? 0) > 0 ? '↗' : (s.pct ?? 0) < 0 ? '↘' : '→'}
+                  </span>
+                  <strong className="font-black text-gray-900">{s.cur.toLocaleString()} in {yy(endYear)} {periodWord}</strong>
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1 mt-2.5 text-[12px] text-gray-400">
+            <span>{activeTab === 'ytd' ? `Year-to-date through ${period?.week_end || '—'}` : `Week of ${period?.week_start || '—'} – ${period?.week_end || '—'}`}</span>
+            {activePop && activeGeo !== 'citywide' && !isTouristPrecinct && (
+              <span className="flex items-center gap-1 text-gray-500"><Users size={12} /> {((totals.mCur / activePop) * 100000).toFixed(1)} per 100k residents (citywide: {(totals.citywideRate || 0).toFixed(1)})</span>
+            )}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 mt-2.5 text-[12px] text-gray-400">
-          <span>{activeTab === 'ytd' ? `Year-to-date through ${period?.week_end || '—'}` : `Week of ${period?.week_start || '—'} – ${period?.week_end || '—'}`}</span>
-          {activePop && activeGeo !== 'citywide' && !isTouristPrecinct && (
-            <span className="flex items-center gap-1 text-gray-500"><Users size={12} /> {((totals.mCur / activePop) * 100000).toFixed(1)} per 100k residents (citywide: {(totals.citywideRate || 0).toFixed(1)})</span>
-          )}
-        </div>
+        <LocatorMap activeGeo={activeGeo} />
       </section>
 
-      {/* Notable patterns + national comparison sidebar */}
+      {/* Notable patterns + national comparison — equal-height boxes so their bottoms align */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
         <div className="lg:col-span-2 p-6 bg-white rounded-sm border border-gray-200">
           <h2 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 mb-4">Patterns and outliers</h2>
@@ -388,10 +390,7 @@ export default function Headlines({ parsedData, hotspots, rawData, activeTab, ac
             </ul>
           )}
         </div>
-        <div className="space-y-6">
-          <LocatorMap activeGeo={activeGeo} />
-          <NationalSidebar rtciData={rtciData} downloadCSV={downloadCSV} />
-        </div>
+        <NationalSidebar rtciData={rtciData} downloadCSV={downloadCSV} />
       </section>
     </div>
   );

@@ -3,9 +3,70 @@ import { geoPath, geoMercator } from 'd3-geo';
 import precinctGeoJSON from '../data/nyc_precincts.json';
 import councilData from '../data/council_districts.json';
 import {
-  PRECINCT_NEIGHBORHOODS, MAJOR_VIOLENT, MAJOR_PROPERTY,
-  safeNum, formatPct, pctColor, toOrdinalPrecinct, SearchIcon, Download,
+  PRECINCT_NEIGHBORHOODS, MAJOR_VIOLENT, MAJOR_PROPERTY, VOLATILITY_THRESHOLD,
+  safeNum, formatPct, pctColor, dirPct, expandCrime,
+  toOrdinalPrecinct, renderMarkdown, SearchIcon, Download,
 } from '../shared';
+
+const MAJORS = ['Murder', 'Rape', 'Robbery', 'Fel. Assault', 'Burglary', 'Gr. Larceny', 'G.L.A.'];
+
+// Auto-generated top-line findings for a council district, from its precincts' YTD data
+// weighted by each precinct's share of the district's area.
+function computeCouncilFindings(district, rawData) {
+  const cwAll = tallyGeo(rawData?.citywide, null);
+  const cwVio = tallyGeo(rawData?.citywide, MAJOR_VIOLENT);
+
+  let wAllCur = 0, wAllPri = 0, wVioCur = 0, wVioPri = 0, wPropCur = 0, wPropPri = 0;
+  let upShare = 0, downShare = 0, upCount = 0, downCount = 0;
+  const perCrime = {};
+  MAJORS.forEach(n => { perCrime[n] = { cur: 0, pri: 0 }; });
+  const pcChanges = []; // per precinct × crime, for sharpest movers
+
+  district.precincts.forEach(o => {
+    const geoKey = toOrdinalPrecinct(o.precinct);
+    const d = rawData?.[geoKey];
+    const s = o.share;
+    const a = tallyGeo(d, null), v = tallyGeo(d, MAJOR_VIOLENT), p = tallyGeo(d, MAJOR_PROPERTY);
+    if (a.cur != null) { wAllCur += s * a.cur; wAllPri += s * a.pri; }
+    if (v.cur != null) { wVioCur += s * v.cur; wVioPri += s * v.pri; }
+    if (p.cur != null) { wPropCur += s * p.cur; wPropPri += s * p.pri; }
+    if (typeof a.pct === 'number') {
+      if (a.pct > 0) { upShare += s; upCount++; } else if (a.pct < 0) { downShare += s; downCount++; }
+    }
+    const fel = d?.seven_major_felonies || {};
+    MAJORS.forEach(n => {
+      const stat = fel[n];
+      const cur = safeNum(stat?.year_to_date?.current_year);
+      const pri = safeNum(stat?.year_to_date?.prior_year);
+      perCrime[n].cur += s * cur; perCrime[n].pri += s * pri;
+      if (pri >= VOLATILITY_THRESHOLD) pcChanges.push({ precinct: geoKey, crime: n, pct: ((cur - pri) / pri) * 100 });
+    });
+  });
+
+  const pctOf = (cur, pri) => (pri > 0 ? ((cur - pri) / pri) * 100 : null);
+  const mk = (cur, pri) => ({ cur, pri, pct: pctOf(cur, pri), diff: cur - pri });
+  const districtAll = mk(wAllCur, wAllPri), districtVio = mk(wVioCur, wVioPri), districtProp = mk(wPropCur, wPropPri);
+
+  const netSign = Math.sign(districtAll.diff);
+  let driver = null;
+  MAJORS.forEach(n => {
+    const diff = perCrime[n].cur - perCrime[n].pri;
+    if (Math.sign(diff) === netSign && diff !== 0 && (!driver || Math.abs(diff) > Math.abs(driver.diff))) {
+      driver = { name: n, diff, pct: pctOf(perCrime[n].cur, perCrime[n].pri) };
+    }
+  });
+
+  let sharpUp = null, sharpDown = null;
+  pcChanges.forEach(x => {
+    if (x.pct > 0 && (!sharpUp || x.pct > sharpUp.pct)) sharpUp = x;
+    if (x.pct < 0 && (!sharpDown || x.pct < sharpDown.pct)) sharpDown = x;
+  });
+
+  return { cwAll, cwVio, districtAll, districtVio, districtProp, upShare, downShare, upCount, downCount, nP: district.precincts.length, driver, sharpUp, sharpDown };
+}
+
+// "down 6.3%" (lowercase, for mid-sentence prose)
+const lowDir = (v) => dirPct(v).toLowerCase();
 
 /* ------------------------------------------------------------------ */
 /* COUNCIL DISTRICTS TAB                                               */
@@ -174,10 +235,45 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
     };
   }, [rawData]);
 
+  const f = useMemo(() => computeCouncilFindings(district, rawData), [district, rawData]);
+
+  // The share-weighted precinct average — a crude estimate of the district as a whole.
+  const precinctAvg = { all: f.districtAll, violent: f.districtVio, property: f.districtProp };
+
+  // Build the auto-generated top-line findings as bolded prose bullets.
+  const findings = useMemo(() => {
+    const out = [];
+    const dName = `Council District ${district.district}`;
+    // 1. Direction the majority of the district's area falls under.
+    if (f.upCount + f.downCount > 0) {
+      const majDown = f.downShare >= f.upShare;
+      const dir = majDown ? 'down' : 'up';
+      const cnt = majDown ? f.downCount : f.upCount;
+      const shr = Math.round((majDown ? f.downShare : f.upShare) * 100);
+      out.push(`Crime is **${dir}** in **${cnt} of the ${f.nP}** precincts that make up ${dName}, together covering **${shr}%** of its area.`);
+    }
+    // 2. Weighted average change vs citywide.
+    if (f.districtAll.pct != null) {
+      out.push(`Across its precincts, total crime is **${lowDir(f.districtAll.pct)}** and violent crime **${lowDir(f.districtVio.pct)}** (weighted by each precinct's share of the district) — vs. citywide ${lowDir(f.cwAll.pct)} and ${lowDir(f.cwVio.pct)}.`);
+    }
+    // 3. Biggest driver crime type.
+    if (f.driver) {
+      out.push(`The biggest driver of the change is **${expandCrime(f.driver.name)}**, ${lowDir(f.driver.pct)} on average across the precincts.`);
+    }
+    // 4 / 5. Sharpest single precinct×crime movers.
+    if (f.sharpUp) {
+      out.push(`The sharpest increase was a **${Math.round(f.sharpUp.pct)}% rise** in ${expandCrime(f.sharpUp.crime)} in the **${f.sharpUp.precinct}**.`);
+    }
+    if (f.sharpDown) {
+      out.push(`The sharpest decline was a **${Math.round(Math.abs(f.sharpDown.pct))}% drop** in ${expandCrime(f.sharpDown.crime)} in the **${f.sharpDown.precinct}**.`);
+    }
+    return out;
+  }, [f, district]);
+
   const changeCell = (t, key = '') => (
     <td key={key} className="py-2.5 text-right tabular-nums text-[13px] font-bold" style={{ color: pctColor(t.pct) }}>
       {typeof t.pct === 'number' ? formatPct(t.pct) : '—'}
-      {t.diff != null && <div className="text-[10px] font-normal text-gray-400">{t.diff > 0 ? '+' : ''}{t.diff.toLocaleString()}</div>}
+      {t.diff != null && <div className="text-[10px] font-normal text-gray-400">{t.diff > 0 ? '+' : ''}{Math.round(t.diff).toLocaleString()}</div>}
     </td>
   );
 
@@ -196,11 +292,27 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
         </div>
       </div>
 
-      <div className="mb-6 flex items-baseline gap-3 flex-wrap">
+      <div className="mb-5 flex items-baseline gap-3 flex-wrap">
         <h3 className="text-lg font-black">Council District {district.district}</h3>
         {district.member && <span className="text-[14px] font-serif text-gray-600">{district.member}</span>}
         <span className="text-[12px] text-gray-400">{district.precincts.length} precincts</span>
       </div>
+
+      {/* Auto-generated top-line findings */}
+      {findings.length > 0 && (
+        <div className="mb-6 p-5 bg-gray-50 rounded-sm border border-gray-200">
+          <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 mb-3">The bottom line</h4>
+          <ul className="space-y-2.5">
+            {findings.map((b, i) => (
+              <li key={i} className="flex gap-2.5 font-serif text-[14px] leading-relaxed text-gray-700">
+                <span className="text-gray-300 flex-shrink-0 mt-[1px]">▪</span>
+                <span>{renderMarkdown(b)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[10px] text-gray-400 italic mt-3">Estimated from each precinct's citywide CompStat totals, weighted by its share of the district's area — a crude approximation, since precincts extend beyond district lines.</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         <DistrictMap district={district} onSelectPrecinct={onSelectPrecinct} />
@@ -219,6 +331,7 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
                   m.violent.cur ?? '', m.violent.pri ?? '', typeof m.violent.pct === 'number' ? m.violent.pct.toFixed(2) : '',
                   m.property.cur ?? '', m.property.pri ?? '', typeof m.property.pct === 'number' ? m.property.pct.toFixed(2) : ''];
                 const data = rows.map(r => { const l = line(r.geoKey, (r.share * 100).toFixed(1) + '%', r); l[1] = r.hoods; return l; });
+                data.push(line('Precinct average (weighted by share)', '', precinctAvg));
                 data.push(line('Citywide', '100%', citywide));
                 downloadCSV(`council_district_${district.district}_precincts.csv`, [header, ...data]);
               }}
@@ -255,8 +368,18 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
                   {changeCell(r.property, 'property')}
                 </tr>
               ))}
-              {/* Citywide comparison line */}
-              <tr className="border-t-2 border-gray-300 bg-gray-50/60">
+              {/* District (precinct average) + Citywide comparison lines */}
+              <tr className="border-t-2 border-gray-300 bg-gray-50/40">
+                <td className="py-2.5 pr-2">
+                  <div className="text-[13px] font-black text-black">Precinct average</div>
+                  <div className="text-[11px] text-gray-500">Weighted by share of district</div>
+                </td>
+                <td className="py-2.5 text-right tabular-nums text-[13px] text-gray-400">—</td>
+                {changeCell(precinctAvg.all, 'pa-all')}
+                {changeCell(precinctAvg.violent, 'pa-violent')}
+                {changeCell(precinctAvg.property, 'pa-property')}
+              </tr>
+              <tr className="bg-gray-50/60">
                 <td className="py-2.5 pr-2">
                   <div className="text-[13px] font-black text-black uppercase tracking-wide">Citywide</div>
                   <div className="text-[11px] text-gray-500">Average for comparison</div>

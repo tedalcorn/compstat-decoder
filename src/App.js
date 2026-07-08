@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   FALLBACK_DATA, GITHUB_USER, REPO_NAME, CITYWIDE_POPULATION, VOLATILITY_THRESHOLD,
   GEO_POPULATIONS, PRECINCT_NEIGHBORHOODS, TOURIST_PRECINCTS, VIOLENT_CRIMES, PROPERTY_CRIMES,
-  safeNum, calcPct, formatGeoName, precinctPatrolBorough, PATROL_BOROUGH_NAMES,
-  SearchIcon, Activity,
+  safeNum, calcPct, formatGeoName, toOrdinalPrecinct, precinctPatrolBorough, PATROL_BOROUGH_NAMES,
+  SearchIcon, Navigation, RefreshCw, Activity,
   RTCI_CSV_URL, parseRTCIcsv, RTCI_FALLBACK, RTCI_FALLBACK_PERIOD, RTCI_FALLBACK_UPDATED,
 } from './shared';
 import HistoricView from './HistoricView';
@@ -48,6 +48,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [fetchError, setFetchError] = useState(false);
   const [rtciData, setRtciData] = useState(null);
+  const [isLocating, setIsLocating] = useState(false);
 
   // Map state ('volume' was retired as a map mode; normalize legacy links to 'rate')
   const [mapCrime, setMapCrime] = useState(initialParams.get('mapCrime') || 'all');
@@ -136,6 +137,23 @@ export default function App() {
     setActiveGeo(geoKey);
     setMainTab('headlines');
     if (typeof window !== 'undefined') window.scrollTo({ top: 0 });
+  };
+
+  const handleLocateUser = () => {
+    if (!navigator.geolocation) return;
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      try {
+        const { latitude, longitude } = position.coords;
+        const res = await fetch(`https://data.cityofnewyork.us/resource/78dh-3ptz.json?$where=intersects(the_geom, 'POINT(${longitude} ${latitude})')`);
+        const data = await res.json();
+        if (data && data.length > 0) {
+          const pName = toOrdinalPrecinct(data[0].precinct);
+          if (rawData[pName]) selectGeo(pName);
+        }
+      } catch (err) { /* ignore */ }
+      finally { setIsLocating(false); }
+    }, () => setIsLocating(false));
   };
 
   const boroughs = useMemo(() => {
@@ -350,6 +368,14 @@ export default function App() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-1.5">
+            <button
+              onClick={handleLocateUser}
+              disabled={geoInert || isLocating}
+              title={geoInert ? 'Location applies to Headlines and Crime Numbers' : 'Find my precinct from my location'}
+              aria-label="Find my precinct from my location"
+              className={`flex items-center justify-center h-[30px] w-8 border rounded flex-shrink-0 transition-colors ${geoInert ? 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed' : 'bg-white border-gray-300 text-gray-500 hover:text-black hover:border-gray-400'}`}>
+              {isLocating ? <RefreshCw size={13} className="animate-spin" /> : <Navigation size={13} />}
+            </button>
             <div className="relative w-36">
               <SearchIcon size={13} className={`absolute left-2.5 top-[9px] pointer-events-none ${geoInert ? 'text-gray-300' : 'text-gray-400'}`} />
               <input

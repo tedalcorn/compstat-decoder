@@ -225,6 +225,18 @@ export const calcPct = (current, prior) => {
 };
 export const formatPct = (v) => (typeof v !== 'number' || Number.isNaN(v)) ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)}%`;
 export const pctColor = (v) => v == null ? '#6b7280' : v > 0 ? '#c0392b' : v < 0 ? '#1f7a3a' : '#6b7280';
+// "Down 6.3%" / "Up 1.6%" / "No change" — how people actually talk about crime trends.
+export const dirPct = (v, digits = 1) => {
+  if (typeof v !== 'number' || Number.isNaN(v)) return '—';
+  if (v === 0) return 'No change';
+  return `${v > 0 ? 'Up' : 'Down'} ${Math.abs(v).toFixed(digits)}%`;
+};
+// "Down 3,365 offenses" / "Up 374 offenses" / "No change".
+export const dirCount = (v, unit = '') => {
+  if (typeof v !== 'number') return '—';
+  if (v === 0) return 'No change';
+  return `${v > 0 ? 'Up' : 'Down'} ${Math.abs(v).toLocaleString()}${unit ? ' ' + unit : ''}`;
+};
 
 // Expand compact CompStat crime labels to friendlier names for prose.
 const EXPANDED_CRIME_NAMES = {

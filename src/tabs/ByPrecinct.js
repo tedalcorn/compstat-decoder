@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { geoPath, geoMercator } from 'd3-geo';
 import precinctGeoJSON from '../data/nyc_precincts.json';
 import {
-  GEO_POPULATIONS, PRECINCT_NEIGHBORHOODS, VC,
+  GEO_POPULATIONS, PRECINCT_NEIGHBORHOODS, VC, dirPct,
   crimeColor, changeColor, TrendingUp, TrendingDown,
 } from '../shared';
 
@@ -168,7 +168,7 @@ const PrecinctRankingBars = ({ precinctRates, onSelect, mapMode = 'rate', hovere
     const barW = Math.max(4, (val / (maxVal || 1)) * maxW);
     const hood = PRECINCT_NEIGHBORHOODS[item.precinct];
     const label = hood ? `${item.precinct.replace(' Precinct', '')} (${hood.split(',')[0]})` : item.precinct.replace(' Precinct', '');
-    const displayVal = mapMode === 'change' ? `${item.pctChange > 0 ? '+' : ''}${item.pctChange.toFixed(1)}%` : item.rate.toFixed(0);
+    const displayVal = mapMode === 'change' ? dirPct(item.pctChange) : item.rate.toFixed(0);
     const isActive = hoveredPrecinctNum === item.precinctNum;
     return (
       <div
@@ -184,7 +184,7 @@ const PrecinctRankingBars = ({ precinctRates, onSelect, mapMode = 'rate', hovere
         </span>
         <div className="flex-1 flex items-center gap-2">
           <div className="h-4 rounded-sm" style={{ width: `${(barW / maxW) * 100}%`, minWidth: 4, background: color }} />
-          <span className="text-[11px] font-bold tabular-nums" style={{ color }}>{displayVal}</span>
+          <span className="text-[11px] font-bold tabular-nums whitespace-nowrap" style={{ color }}>{displayVal}</span>
         </div>
       </div>
     );
