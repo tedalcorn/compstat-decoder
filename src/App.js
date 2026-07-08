@@ -3,7 +3,7 @@ import {
   FALLBACK_DATA, GITHUB_USER, REPO_NAME, CITYWIDE_POPULATION, VOLATILITY_THRESHOLD,
   GEO_POPULATIONS, PRECINCT_NEIGHBORHOODS, TOURIST_PRECINCTS, VIOLENT_CRIMES, PROPERTY_CRIMES,
   safeNum, calcPct, formatGeoName, precinctPatrolBorough, PATROL_BOROUGH_NAMES,
-  SearchIcon, Link2, Activity,
+  SearchIcon, Activity,
   RTCI_CSV_URL, parseRTCIcsv, RTCI_FALLBACK, RTCI_FALLBACK_PERIOD, RTCI_FALLBACK_UPDATED,
 } from './shared';
 import HistoricView from './HistoricView';
@@ -12,6 +12,7 @@ import CrimeNumbers from './tabs/CrimeNumbers';
 import ByPrecinct from './tabs/ByPrecinct';
 import Transit from './tabs/Transit';
 import CouncilDistricts from './tabs/CouncilDistricts';
+import About from './tabs/About';
 
 const MAIN_TABS = [
   ['headlines', 'Headlines'],
@@ -19,6 +20,7 @@ const MAIN_TABS = [
   ['transit', 'Transit'],
   ['precincts', 'By Precinct'],
   ['council', 'By Council District'],
+  ['about', 'About'],
 ];
 const TAB_KEYS = MAIN_TABS.map(t => t[0]);
 
@@ -79,19 +81,6 @@ export default function App() {
       window.history.replaceState({}, '', newUrl);
     }
   }, [appView, mainTab, activeTab, activeGeo, mapMode, mapCrime, districtNum]);
-
-  // Copy the current URL (with all view state) to the clipboard so users can share specific views.
-  const [copyLinkLabel, setCopyLinkLabel] = useState('Copy link');
-  const handleCopyLink = useCallback(() => {
-    try {
-      navigator.clipboard?.writeText(window.location.href).catch(() => {});
-      setCopyLinkLabel('Copied!');
-      setTimeout(() => setCopyLinkLabel('Copy link'), 1500);
-    } catch {
-      setCopyLinkLabel('Copy failed');
-      setTimeout(() => setCopyLinkLabel('Copy link'), 1500);
-    }
-  }, []);
 
   // Generic CSV download helper. Takes a filename and an array of arrays (header + rows).
   const downloadCSV = useCallback((filename, rows) => {
@@ -325,7 +314,12 @@ export default function App() {
 
         {/* Single-row navigation: brand, section tabs, geography, period toggle */}
         <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200 -mx-5 sm:-mx-8 px-5 sm:px-8 mb-8 py-2 flex flex-wrap items-center gap-x-2 gap-y-2">
-          <span className="text-[10px] font-black uppercase tracking-wider text-black flex-shrink-0 mr-1">NYC Crime Breakdown</span>
+          <button
+            onClick={() => { setActiveGeo('citywide'); setMainTab('headlines'); }}
+            title="Back to citywide headlines"
+            className="text-[10px] font-black uppercase tracking-wider text-black flex-shrink-0 mr-1 hover:text-indigo-600 transition-colors">
+            NYC Crime Breakdown
+          </button>
           <nav className="flex items-center" aria-label="Sections">
             {MAIN_TABS.map(([key, label]) => (
               <button
@@ -388,10 +382,6 @@ export default function App() {
               <button onClick={() => setActiveTab('wtd')} aria-pressed={activeTab === 'wtd'} title="This CompStat week vs the same week last year" className={`px-2 py-1.5 text-[10px] font-black uppercase tracking-wide transition-colors ${activeTab === 'wtd' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:text-black'}`}>Wk</button>
               <button onClick={() => setActiveTab('ytd')} aria-pressed={activeTab === 'ytd'} title="Year-to-date vs the same period last year" className={`px-2 py-1.5 text-[10px] font-black uppercase tracking-wide transition-colors ${activeTab === 'ytd' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:text-black'}`}>YTD</button>
             </div>
-            <button onClick={handleCopyLink} title="Copy a shareable link to this exact view" aria-label="Copy a shareable link to this exact view" className="text-gray-400 hover:text-black transition-colors flex items-center gap-1 px-0.5 py-1 flex-shrink-0">
-              <Link2 size={14} />
-              {copyLinkLabel !== 'Copy link' && <span className="text-[10px] font-black uppercase tracking-widest">{copyLinkLabel}</span>}
-            </button>
             <button onClick={() => setAppView('historic')} title="The 30-year transformation of NYC crime" className="text-[11px] font-bold text-gray-400 hover:text-black transition-colors flex items-center gap-1 flex-shrink-0 whitespace-nowrap">
               <Activity size={12} /> 30-Yr
             </button>
@@ -444,43 +434,9 @@ export default function App() {
             downloadCSV={downloadCSV}
           />
         )}
-
-        {/* Methodology / About footer */}
-        <footer className="mt-16 pt-8 border-t border-gray-200 text-[12px] text-gray-600 grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div>
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Data sources</h3>
-            <ul className="space-y-1 leading-snug">
-              <li>NYPD CompStat 2.0 weekly report (scraped from <a href="https://compstat.nypdonline.org/" className="underline hover:text-black" target="_blank" rel="noopener noreferrer">compstat.nypdonline.org</a>)</li>
-              <li>NYC Open Data — NYPD Complaint Data Historic (<code className="text-[10px]">qgea-i56i</code>) &amp; Current YTD (<code className="text-[10px]">5uac-w243</code>)</li>
-              <li>NYPD historical annual indices, 1993–present (NYPD Historical NYC Crime Data)</li>
-              <li>U.S. Census ACS population estimates for per-100k rate calculations</li>
-              <li>Real-Time Crime Index by AH Datalytics for peer-city comparison</li>
-              <li>NYC Open Data council district &amp; precinct boundary files for the district-precinct crosswalk</li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Methodology notes</h3>
-            <ul className="space-y-1 leading-snug">
-              <li>"Year-to-date" follows NYPD's CompStat week ending on Sunday — same-period prior-year comparison.</li>
-              <li>"Tourist hubs" (14th, 18th, 22nd precincts) have residential populations far below daytime populations, so per-100k rates are flagged with a hatch overlay. % change is unaffected.</li>
-              <li>Pre-pandemic baseline = mean and range of 2017–2019 annual citywide totals.</li>
-              <li>Current-year sparkline dot uses an annualized projection: <code className="text-[10px]">current_ytd / (prior_year_ytd / prior_year_full)</code>.</li>
-              <li>Outlier badges use z-score against the prior-5-year baseline; |z| ≥ 2 triggers a flag.</li>
-              <li>"Significant" YoY shifts at the precinct level filter for a base of at least 5 incidents in the prior period to avoid volatile small-sample noise.</li>
-              <li>Council-district precinct shares = share of the district's land area inside each precinct, from the official 2023 council lines.</li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">About</h3>
-            <p className="leading-snug mb-3">
-              Published by <a href="https://vitalcitynyc.org/" className="underline hover:text-black" target="_blank" rel="noopener noreferrer">Vital City</a>, an independent New York policy journal. The project is open source; data refreshes every Monday after NYPD posts the new CompStat report.
-            </p>
-            <p className="leading-snug text-gray-500">
-              Updated {(parsedData.period?.week_end || '—').replace(/\/20(\d\d)$/, '/$1')} (CompStat week ending). Page rendered {new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}.{fetchError && ' Live fetch unavailable — showing embedded data.'}
-            </p>
-            <p className="mt-3"><a href="https://github.com/joshgreenman1973/compstat-ledger" className="underline hover:text-black" target="_blank" rel="noopener noreferrer">View source on GitHub →</a></p>
-          </div>
-        </footer>
+        {mainTab === 'about' && (
+          <About parsedData={parsedData} fetchError={fetchError} />
+        )}
       </div>
     </div>
   );

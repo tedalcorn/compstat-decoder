@@ -99,10 +99,9 @@ export default function CrimeNumbers({ parsedData, activeTab, activeGeo, isTouri
         <table className="w-full text-left border-collapse min-w-[820px]">
           <thead>
             <tr className="border-b-2 border-black">
-              <SortTh field="name" align="left" defaultDir="asc">Offense</SortTh>
+              <SortTh field="name" align="left" defaultDir="asc">Offense (Crime type)</SortTh>
               <th className="py-2.5"></th>
               <SortTh field="current">{colYear}</SortTh>
-              <SortTh field="prior">{colPrior}</SortTh>
               <SortTh field="diff">Year-on-year change (incidents)</SortTh>
               <SortTh field="pct">Year-on-year change (%)</SortTh>
               {isCitywide && <th className="py-2.5 text-center hidden md:table-cell"><span className="text-[10px] font-black uppercase tracking-widest text-gray-400 cursor-help underline decoration-dotted decoration-gray-300 underline-offset-[3px]" title={TREND_TOOLTIP}>Trend</span></th>}
@@ -127,9 +126,9 @@ export default function CrimeNumbers({ parsedData, activeTab, activeGeo, isTouri
                     </div>
                   </td>
                   <td className={`py-1.5 text-right tabular-nums text-sm font-black text-black ${isVolatile ? 'opacity-50' : ''}`}>{item.current.toLocaleString()}</td>
-                  <td className={`py-1.5 text-right tabular-nums text-gray-500 text-sm ${isVolatile ? 'opacity-50' : ''}`}>{item.prior.toLocaleString()}</td>
-                  <td className={`py-1.5 text-right tabular-nums text-sm font-bold ${item.diff > 0 ? 'text-orange-700' : item.diff < 0 ? 'text-green-700' : 'text-gray-500'}`}>
-                    {item.diff > 0 ? '+' : ''}{item.diff.toLocaleString()}
+                  <td className={`py-1.5 text-right tabular-nums text-sm ${isVolatile ? 'opacity-50' : ''}`}>
+                    <span className={`font-bold ${item.diff > 0 ? 'text-orange-700' : item.diff < 0 ? 'text-green-700' : 'text-gray-500'}`}>{item.diff > 0 ? '+' : ''}{item.diff.toLocaleString()}</span>
+                    <span className="text-gray-400 font-normal text-[12px]"> (from {item.prior.toLocaleString()} in {colPrior})</span>
                   </td>
                   <td className={`py-1.5 text-right text-xs font-bold tabular-nums ${item.pct > 0 ? 'text-orange-600' : item.pct < 0 ? 'text-green-600' : 'text-gray-500'}`}>
                     <span aria-label={`${item.pct > 0 ? 'Up' : 'Down'} ${Math.abs(item.pct ?? 0).toFixed(1)} percent`}>

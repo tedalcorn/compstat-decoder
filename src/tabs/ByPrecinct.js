@@ -224,18 +224,21 @@ export default function ByPrecinct({ precinctRates, mapMode, setMapMode, mapCrim
 
   return (
     <div>
-      {/* Controls — stable rows so nothing shifts when a selection changes */}
-      <div className="flex flex-col gap-2 mb-5">
-        <div className="flex items-center gap-4 flex-wrap">
-          <h2 className="text-2xl font-black font-serif">By Precinct</h2>
-          <div className="flex gap-1 bg-gray-100 p-1 rounded border border-gray-200">
-            {[['rate', 'Rate per 100k'], ['change', '% Change']].map(([val, label]) => (
-              <button key={val} onClick={() => setMapMode(val)} className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-sm transition-colors ${mapMode === val ? 'bg-white shadow-sm text-black' : 'text-gray-500 hover:text-black'}`}>{label}</button>
-            ))}
-          </div>
+      {/* Controls — title, then measure toggle, then the crime selector on their own
+          lines. The measure toggle is a rounded-pill segmented control; the crime
+          selector uses square-cornered pills, so the two axes read as distinct. */}
+      <div className="flex flex-col gap-3 mb-6">
+        <h2 className="text-2xl font-black font-serif">By Precinct</h2>
+
+        {/* Measure — binary toggle, pill-shaped */}
+        <div className="inline-flex self-start gap-1 bg-gray-100 p-1 rounded-full border border-gray-200">
+          {[['rate', 'Rate per 100k'], ['change', '% Change']].map(([val, label]) => (
+            <button key={val} onClick={() => setMapMode(val)} className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-colors ${mapMode === val ? 'bg-white shadow-sm text-black' : 'text-gray-500 hover:text-black'}`}>{label}</button>
+          ))}
         </div>
-        {/* Crime selector: big categories on top, individual offenses below in lighter type */}
-        <div className="flex flex-col gap-1">
+
+        {/* Crime selector — square pills: big categories on top, individual offenses below in lighter type */}
+        <div className="flex flex-col gap-1.5">
           <div className="flex gap-1 flex-wrap">
             {CATEGORY_PILLS.map(([val, label]) => (
               <button key={val} onClick={() => setMapCrime(val)} className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-sm border transition-colors ${mapCrime === val ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-100 text-gray-600 border-gray-200 hover:text-black'}`}>{label}</button>
