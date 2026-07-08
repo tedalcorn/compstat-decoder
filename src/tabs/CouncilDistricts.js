@@ -536,7 +536,14 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
             <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-500 leading-tight">Major felonies by precinct<br /><span className="text-gray-400">Year-on-year change (YTD)</span></h4>
             <div className="flex items-center gap-2 flex-shrink-0">
               <button
-                onClick={() => window.print()}
+                onClick={() => {
+                  // The browser's Save-as-PDF uses document.title as the default filename.
+                  const prev = document.title;
+                  document.title = `NYC CompStat Decoder - CD${district.district}`;
+                  const restore = () => { document.title = prev; window.removeEventListener('afterprint', restore); };
+                  window.addEventListener('afterprint', restore);
+                  window.print();
+                }}
                 title="Download a one-page PDF summary of this district"
                 className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-black border border-gray-300 rounded px-2.5 py-1 hover:bg-gray-50 transition-colors">
                 <Download size={11} /> PDF

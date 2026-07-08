@@ -80,7 +80,9 @@ export default function App() {
     if (activeGeo !== 'citywide') params.set('geo', activeGeo);
     if (mapMode !== 'rate') params.set('mapMode', mapMode);
     if (mapCrime !== 'all') params.set('mapCrime', mapCrime);
-    if (districtNum !== 15) params.set('district', String(districtNum));
+    // On the council tab, always pin the district in the URL (including 15) so sharing the
+    // page always deep-links to the district on screen — no district is the "empty" default.
+    if (mainTab === 'council') params.set('district', String(districtNum));
     const qs = params.toString();
     const newUrl = window.location.pathname + (qs ? '?' + qs : '') + window.location.hash;
     if (newUrl !== window.location.pathname + window.location.search + window.location.hash) {
