@@ -16,7 +16,8 @@ import {
 /* Shows the whole city; fills the selected borough or precinct so a    */
 /* reader browsing a sub-geography can see where it sits.               */
 /* ------------------------------------------------------------------ */
-const LocatorMap = ({ activeGeo, width = 190, height = 150 }) => {
+const LocatorMap = ({ activeGeo, onSelectGeo, width = 190, height = 150 }) => {
+  const [hover, setHover] = useState(null);
   const pathFn = useMemo(() => {
     const projection = geoMercator().fitSize([width, height], precinctGeoJSON);
     return geoPath().projection(projection);
@@ -42,10 +43,23 @@ const LocatorMap = ({ activeGeo, width = 190, height = 150 }) => {
           if (isCitywide) fill = VC.magenta;                                  // whole city lit by default
           else if (activeNum && num === activeNum) fill = VC.magenta;         // the selected precinct
           else if (activeBoro && boro === activeBoro) fill = activeNum ? '#f4c4d3' : VC.magenta; // its borough
-          return <path key={num} d={pathFn(f)} fill={fill} stroke="#fff" strokeWidth={0.4} />;
+          return (
+            <path
+              key={num}
+              d={pathFn(f)}
+              fill={fill}
+              stroke={hover === num ? '#111' : '#fff'}
+              strokeWidth={hover === num ? 0.9 : 0.4}
+              onClick={onSelectGeo ? () => onSelectGeo(toOrdinalPrecinct(num)) : undefined}
+              onMouseEnter={onSelectGeo ? () => setHover(num) : undefined}
+              onMouseLeave={onSelectGeo ? () => setHover(null) : undefined}
+              style={onSelectGeo ? { cursor: 'pointer', filter: hover === num ? 'brightness(0.82)' : 'none' } : undefined}
+            />
+          );
         })}
       </svg>
       <p className="text-[11px] font-bold text-gray-700 mt-1.5 leading-tight">{label}</p>
+      {onSelectGeo && <p className="text-[10px] text-gray-400 leading-tight mt-0.5">Tap a precinct to see its numbers.</p>}
     </div>
   );
 };
@@ -355,7 +369,7 @@ export default function Headlines({ parsedData, hotspots, rawData, activeTab, ac
                   <div className={i === 0 ? 'text-[15px] font-black leading-tight' : 'text-[13px] font-bold text-gray-700 leading-tight'}>{s.label}</div>
                   <div className="text-[11px] text-gray-400 leading-tight mt-0.5">{s.sub}</div>
                 </div>
-                <span className={`tabular-nums font-black w-20 sm:w-28 whitespace-nowrap ${i === 0 ? 'text-[20px]' : 'text-[16px]'}`} style={{ color: (s.pct ?? 0) > 0 ? '#c2410c' : (s.pct ?? 0) < 0 ? '#15803d' : '#374151' }}>
+                <span className={`tabular-nums font-black ml-auto sm:ml-0 text-right sm:text-left w-24 sm:w-28 whitespace-nowrap ${i === 0 ? 'text-[20px]' : 'text-[16px]'}`} style={{ color: (s.pct ?? 0) > 0 ? '#c2410c' : (s.pct ?? 0) < 0 ? '#15803d' : '#374151' }}>
                   {dirPct(s.pct)}
                 </span>
                 <span className="text-[12px] sm:text-[13px] text-gray-600 tabular-nums basis-full sm:basis-auto">
@@ -375,7 +389,7 @@ export default function Headlines({ parsedData, hotspots, rawData, activeTab, ac
             )}
           </div>
         </div>
-        <LocatorMap activeGeo={activeGeo} />
+        <LocatorMap activeGeo={activeGeo} onSelectGeo={onSelectGeo} />
       </section>
 
       {/* Notable patterns + national comparison — equal-height boxes so their bottoms align */}

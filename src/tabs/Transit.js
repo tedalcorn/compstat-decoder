@@ -180,8 +180,7 @@ export default function Transit({ rawData, downloadCSV }) {
               {[
                 { label: 'Last 28 days', count: m28.current_year, pct: m28.pct_change },
                 { label: 'This week', count: wtd.current_year, pct: wtd.pct_change },
-                { label: 'vs. 2 years ago', count: null, pct: hist['2_yr_pct'] },
-                { label: 'vs. 14 years ago', count: null, pct: hist['14_yr_pct'] },
+                { label: `Compared to ${endYear - 2} (YTD)`, count: null, pct: hist['2_yr_pct'] },
               ].map((r, i, arr) => (
                 <tr key={r.label} className={i < arr.length - 1 ? 'border-b border-gray-200' : ''}>
                   <td className="py-1.5 pr-4 text-[12px] text-gray-600 whitespace-nowrap">{r.label}</td>
@@ -269,7 +268,7 @@ export default function Transit({ rawData, downloadCSV }) {
             district in the complaint extract and cannot appear in the table above. */}
         <div className="mt-8 p-5 bg-gray-50 border border-gray-200 rounded-sm">
           <span className="text-[11px] font-black uppercase tracking-widest text-gray-600">Transit homicides</span>
-          <div className="mt-2.5 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
+          <div className="mt-2 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-x-6 gap-y-4">
             <p className="text-[13px] text-gray-600 leading-relaxed max-w-md">
               Homicides are tracked separately by the NYPD Transit Bureau. Last year closed with {TH_LAST.count} transit murders, {TH_CHG >= 0 ? 'down' : 'up'} {Math.abs(TH_CHG)}% from {TH_PREV.year} and the lowest in five years.
             </p>

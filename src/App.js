@@ -17,9 +17,9 @@ import About from './tabs/About';
 // The brand itself is the lead ("headlines") page, so it isn't listed as a tab.
 const MAIN_TABS = [
   ['numbers', 'Crime Types'],
-  ['transit', 'In Transit'],
   ['precincts', 'By Precinct'],
   ['council', 'By Council District'],
+  ['transit', 'In Transit'],
   ['about', 'About'],
 ];
 const TAB_KEYS = ['headlines', ...MAIN_TABS.map(t => t[0])];
@@ -352,21 +352,21 @@ export default function App() {
 
         {/* Single-row navigation: brand, section tabs, geography, period toggle */}
         <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200 -mx-5 sm:-mx-8 px-5 sm:px-8 mb-8 py-2 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-x-2 gap-y-1.5 print:hidden">
-          <div className="flex items-center gap-1 w-full sm:w-auto min-w-0 overflow-x-auto sm:overflow-visible">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-y-0.5 sm:gap-1 w-full sm:w-auto min-w-0">
           <button
             onClick={() => { setActiveGeo('citywide'); setMainTab('headlines'); }}
             aria-pressed={mainTab === 'headlines'}
             title="Home — citywide headlines"
-            className={`text-[10px] font-black uppercase tracking-wider flex-shrink-0 mr-2 py-1.5 border-b-2 transition-colors ${mainTab === 'headlines' ? 'border-black text-black' : 'border-transparent text-black hover:text-indigo-600'}`}>
+            className={`self-start text-[10px] font-black uppercase tracking-wider flex-shrink-0 sm:mr-2 py-1.5 border-b-2 transition-colors ${mainTab === 'headlines' ? 'border-black text-black' : 'border-transparent text-black hover:text-indigo-600'}`}>
             NYC CompStat Decoder
           </button>
-          <nav className="flex items-center" aria-label="Sections">
+          <nav className="flex items-center justify-between sm:justify-start w-full sm:w-auto" aria-label="Sections">
             {MAIN_TABS.map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => setMainTab(key)}
                 aria-pressed={mainTab === key}
-                className={`text-[12.5px] font-bold px-1.5 py-1.5 border-b-2 transition-colors flex-shrink-0 whitespace-nowrap ${mainTab === key ? 'border-black text-black' : 'border-transparent text-gray-400 hover:text-black'}`}
+                className={`text-[11px] sm:text-[12.5px] font-bold px-0.5 sm:px-1.5 py-1.5 border-b-2 transition-colors flex-shrink-0 whitespace-nowrap ${mainTab === key ? 'border-black text-black' : 'border-transparent text-gray-400 hover:text-black'}`}
               >
                 {label}
               </button>

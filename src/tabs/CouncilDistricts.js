@@ -363,13 +363,13 @@ const DistrictTitleSelector = ({ districts, district, setDistrictNum }) => {
   }
 
   return (
-    <button onClick={() => { setOpen(true); setQuery(''); }} title="Change district" className="text-left group">
+    <button onClick={() => { setOpen(true); setQuery(''); }} title="Change district" className="text-left group min-w-0">
       <div className="flex items-center gap-2">
-        <h2 className="text-2xl font-black font-serif group-hover:text-indigo-700 transition-colors">Council District {district.district}</h2>
-        <ChevronDown size={18} className="text-gray-400 group-hover:text-indigo-600" />
+        <h2 className="text-xl sm:text-2xl font-black font-serif group-hover:text-indigo-700 transition-colors whitespace-nowrap">Council District {district.district}</h2>
+        <ChevronDown size={18} className="text-gray-400 group-hover:text-indigo-600 flex-shrink-0" />
       </div>
-      <div className="flex items-baseline gap-2 mt-0.5">
-        {district.member && <span className="text-[14px] font-serif text-gray-600">Council Member {district.member}</span>}
+      <div className="flex items-baseline flex-wrap gap-x-2 mt-0.5">
+        {district.member && <span className="text-[13px] sm:text-[14px] font-serif text-gray-600">Council Member {district.member}</span>}
         <span className="text-[12px] text-gray-400">· {district.precincts.length} precincts</span>
       </div>
     </button>
@@ -493,14 +493,14 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
     <>
       <div className="print:hidden">
       {/* The district selector is the page title */}
-      <div className="flex items-center gap-3 mb-6 flex-wrap">
+      <div className="flex items-start gap-1.5 sm:gap-3 mb-6">
         <button
           onClick={() => setDistrictNum(district.district <= 1 ? 51 : district.district - 1)}
-          className="px-2.5 py-2 text-[13px] font-black border border-gray-300 rounded hover:bg-gray-50 self-start mt-1" aria-label="Previous district">←</button>
+          className="px-2 sm:px-2.5 py-1.5 sm:py-2 text-[13px] font-black border border-gray-300 rounded hover:bg-gray-50 flex-shrink-0 mt-1" aria-label="Previous district">←</button>
         <DistrictTitleSelector districts={districts} district={district} setDistrictNum={setDistrictNum} />
         <button
           onClick={() => setDistrictNum(district.district >= 51 ? 1 : district.district + 1)}
-          className="px-2.5 py-2 text-[13px] font-black border border-gray-300 rounded hover:bg-gray-50 self-start mt-1" aria-label="Next district">→</button>
+          className="px-2 sm:px-2.5 py-1.5 sm:py-2 text-[13px] font-black border border-gray-300 rounded hover:bg-gray-50 flex-shrink-0 mt-1" aria-label="Next district">→</button>
       </div>
 
       {/* Auto-generated top-line findings */}
