@@ -248,10 +248,13 @@ export default function ByPrecinct({ precinctRates, mapMode, setMapMode, mapCrim
             ))}
           </div>
           <span className="w-px h-6 bg-gray-200 mx-1 hidden sm:block" />
-          {/* Crime categories — square pills */}
-          {CATEGORY_PILLS.map(([val, label]) => (
-            <button key={val} onClick={() => setMapCrime(val)} className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-sm border transition-colors ${mapCrime === val ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-100 text-gray-600 border-gray-200 hover:text-black'}`}>{label}</button>
-          ))}
+          {/* Crime categories — square pills. On mobile they wrap onto their own line
+              together (w-full) so All Major / Violent / Property stay grouped. */}
+          <div className="flex gap-2 w-full sm:w-auto">
+            {CATEGORY_PILLS.map(([val, label]) => (
+              <button key={val} onClick={() => setMapCrime(val)} className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-sm border transition-colors ${mapCrime === val ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-100 text-gray-600 border-gray-200 hover:text-black'}`}>{label}</button>
+            ))}
+          </div>
         </div>
         {/* Individual offenses below in lighter type */}
         <div className="flex gap-1 flex-wrap">
