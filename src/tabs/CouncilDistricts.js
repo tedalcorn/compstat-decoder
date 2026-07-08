@@ -5,7 +5,7 @@ import councilData from '../data/council_districts.json';
 import {
   PRECINCT_NEIGHBORHOODS, MAJOR_VIOLENT, MAJOR_PROPERTY, VOLATILITY_THRESHOLD,
   safeNum, pctColor, dirPct, dirCount, expandCrime,
-  toOrdinalPrecinct, renderMarkdown, SearchIcon, ChevronDown, Download,
+  toOrdinalPrecinct, SearchIcon, ChevronDown, Download,
 } from '../shared';
 
 const MAJORS = ['Murder', 'Rape', 'Robbery', 'Fel. Assault', 'Burglary', 'Gr. Larceny', 'G.L.A.'];
@@ -148,6 +148,22 @@ function computeCouncilFindings(district, rawData) {
 
 // "down 6.3%" (lowercase, for mid-sentence prose)
 const lowDir = (v) => dirPct(v).toLowerCase();
+
+// Directional phrases in the findings get bolded and colored — red for rising crime,
+// green for falling. {up:..} / {dn:..} tokens are expanded by renderFinding.
+const UP_COLOR = '#c2410c', DN_COLOR = '#15803d';
+const upTok = (t) => `{up:${t}}`;
+const dnTok = (t) => `{dn:${t}}`;
+const cPct = (pct) => (pct > 0 ? upTok : dnTok)(lowDir(pct)); // "down 7.6%", colored by sign
+const renderFinding = (text) => {
+  const parts = text.split(/(\{up:.*?\}|\{dn:.*?\}|\*\*.*?\*\*)/g);
+  return parts.map((p, i) => {
+    if (p.startsWith('{up:')) return <strong key={i} style={{ color: UP_COLOR }}>{p.slice(4, -1)}</strong>;
+    if (p.startsWith('{dn:')) return <strong key={i} style={{ color: DN_COLOR }}>{p.slice(4, -1)}</strong>;
+    if (p.startsWith('**') && p.endsWith('**')) return <strong key={i} className="text-black">{p.slice(2, -2)}</strong>;
+    return <React.Fragment key={i}>{p}</React.Fragment>;
+  });
+};
 
 /* ------------------------------------------------------------------ */
 /* COUNCIL DISTRICTS TAB                                               */
@@ -411,22 +427,22 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
       const dir = majDown ? 'down' : 'up';
       const cnt = majDown ? f.downCount : f.upCount;
       const shr = Math.round((majDown ? f.downShare : f.upShare) * 100);
-      out.push(`Crime is **${dir}** in **${cnt} of the ${f.nP}** precincts that make up ${dName}, together covering **${shr}%** of its area.`);
+      out.push(`Crime is ${(dir === 'up' ? upTok : dnTok)(dir)} in **${cnt} of the ${f.nP}** precincts that make up ${dName}, together covering **${shr}%** of its area.`);
     }
     // 2. Weighted average change vs citywide.
     if (f.districtAll.pct != null) {
-      out.push(`Across its precincts, total crime is **${lowDir(f.districtAll.pct)}** and violent crime **${lowDir(f.districtVio.pct)}** (weighted by each precinct's share of the district) — vs. citywide ${lowDir(f.cwAll.pct)} and ${lowDir(f.cwVio.pct)}.`);
+      out.push(`Across its precincts, total crime is ${cPct(f.districtAll.pct)} and violent crime ${cPct(f.districtVio.pct)} (weighted by each precinct's share of the district) — vs. citywide ${cPct(f.cwAll.pct)} and ${cPct(f.cwVio.pct)}.`);
     }
     // 3. Biggest driver crime type.
     if (f.driver) {
-      out.push(`The biggest driver of the change is **${expandCrime(f.driver.name)}**, ${lowDir(f.driver.pct)} on average across the precincts.`);
+      out.push(`The biggest driver of the change is **${expandCrime(f.driver.name)}**, ${cPct(f.driver.pct)} on average across the precincts.`);
     }
     // 4 / 5. Sharpest single precinct×crime movers.
     if (f.sharpUp) {
-      out.push(`The sharpest increase was a **${Math.round(f.sharpUp.pct)}% rise** in ${expandCrime(f.sharpUp.crime)} in the **${f.sharpUp.precinct}**.`);
+      out.push(`The sharpest increase was a ${upTok(Math.round(f.sharpUp.pct) + '% rise')} in ${expandCrime(f.sharpUp.crime)} in the **${f.sharpUp.precinct}**.`);
     }
     if (f.sharpDown) {
-      out.push(`The sharpest decline was a **${Math.round(Math.abs(f.sharpDown.pct))}% drop** in ${expandCrime(f.sharpDown.crime)} in the **${f.sharpDown.precinct}**.`);
+      out.push(`The sharpest decline was a ${dnTok(Math.round(Math.abs(f.sharpDown.pct)) + '% drop')} in ${expandCrime(f.sharpDown.crime)} in the **${f.sharpDown.precinct}**.`);
     }
     return out;
   }, [f, district]);
@@ -459,7 +475,7 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
             {findings.map((b, i) => (
               <li key={i} className="flex gap-2.5 font-serif text-[14px] leading-relaxed text-gray-700">
                 <span className="text-gray-300 flex-shrink-0 mt-[1px]">▪</span>
-                <span>{renderMarkdown(b)}</span>
+                <span>{renderFinding(b)}</span>
               </li>
             ))}
           </ul>
