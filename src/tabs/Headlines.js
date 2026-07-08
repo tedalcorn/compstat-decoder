@@ -1,13 +1,75 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { geoPath, geoMercator } from 'd3-geo';
 import crimeHistory from '../data/crime_history.json';
+import precinctGeoJSON from '../data/nyc_precincts.json';
 import {
-  CW, VC, MAJOR_VIOLENT, MAJOR_PROPERTY, PATROL_BOROUGH_NAMES,
+  CW, VC, MAJOR_VIOLENT, MAJOR_PROPERTY, PATROL_BOROUGH_NAMES, PRECINCT_NEIGHBORHOODS,
   formatPop, formatGeoName, expandCrime, expandCrimeTitle, toOrdinalPrecinct,
   getPrePandemicRecovery, precinctHistorySeries, precinctPatrolBorough, numWord,
-  renderMarkdown, calcPct,
+  calcPct,
   RTCI_GROUPS, RTCI_FALLBACK, RTCI_FALLBACK_PERIOD, RTCI_FALLBACK_UPDATED, rtciRate,
   Users, Download,
 } from '../shared';
+
+/* ------------------------------------------------------------------ */
+/* LOCATOR MAP — small orientation inset for the Headlines right rail.  */
+/* Shows the whole city; fills the selected borough or precinct so a    */
+/* reader browsing a sub-geography can see where it sits.               */
+/* ------------------------------------------------------------------ */
+const LocatorMap = ({ activeGeo, width = 190, height = 150 }) => {
+  const pathFn = useMemo(() => {
+    const projection = geoMercator().fitSize([width, height], precinctGeoJSON);
+    return geoPath().projection(projection);
+  }, [width, height]);
+
+  const isPrecinct = activeGeo.includes('Precinct');
+  const isBorough = PATROL_BOROUGH_NAMES.includes(activeGeo);
+  const activeNum = isPrecinct ? parseInt(activeGeo, 10) : null;
+  const activeBoro = isBorough ? activeGeo : (activeNum ? precinctPatrolBorough(activeGeo) : null);
+
+  const label = activeGeo === 'citywide' ? 'New York City'
+    : isBorough ? activeGeo
+    : `${activeGeo}${PRECINCT_NEIGHBORHOODS[activeGeo] ? ` · ${PRECINCT_NEIGHBORHOODS[activeGeo]}` : ''}`;
+
+  return (
+    <div className="p-4 bg-gray-50 rounded-sm border border-gray-200">
+      <h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-400 mb-2">Where you are</h3>
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto">
+        {precinctGeoJSON.features.map(f => {
+          const num = parseInt(f.properties.precinct, 10);
+          const boro = precinctPatrolBorough(String(num));
+          let fill = '#e5e7eb';
+          if (activeNum && num === activeNum) fill = VC.magenta;
+          else if (activeBoro && boro === activeBoro) fill = activeNum ? '#f4c4d3' : VC.magenta;
+          return <path key={num} d={pathFn(f)} fill={fill} stroke="#fff" strokeWidth={0.4} />;
+        })}
+      </svg>
+      <p className="text-[11px] font-bold text-gray-700 mt-1.5 leading-tight">{label}</p>
+    </div>
+  );
+};
+
+/* Render a patterns bullet: **bold** spans plus [[Nth Precinct]] click-through links. */
+const renderBullet = (text, onPrecinct) => {
+  const boldParts = text.split(/(\*\*.*?\*\*)/g);
+  return boldParts.map((part, i) => {
+    const isBold = part.startsWith('**') && part.endsWith('**');
+    const inner = isBold ? part.slice(2, -2) : part;
+    const segs = inner.split(/(\[\[.*?\]\])/g).map((seg, j) => {
+      if (seg.startsWith('[[') && seg.endsWith(']]')) {
+        const name = seg.slice(2, -2);
+        return (
+          <button key={j} type="button" onClick={() => onPrecinct(name)}
+            className="inline text-left underline decoration-dotted decoration-gray-400 underline-offset-2 hover:text-indigo-600 hover:decoration-indigo-500 transition-colors">
+            {name}
+          </button>
+        );
+      }
+      return <React.Fragment key={j}>{seg}</React.Fragment>;
+    });
+    return isBold ? <strong key={i} className="text-black">{segs}</strong> : <React.Fragment key={i}>{segs}</React.Fragment>;
+  });
+};
 
 /* ------------------------------------------------------------------ */
 /* NATIONAL COMPARISON SIDEBAR — Real-Time Crime Index                 */
@@ -159,9 +221,19 @@ function buildBullets({ parsedData, hotspots, rawData, activeGeo, activeTab, isT
   }
 
   // 2. Biggest contributor to this geography's change — everywhere.
+  // A single offense can move more than the index's *net* change when other offenses move
+  // the opposite way; in that case "X% of the change" would read above 100% and confuse, so
+  // switch to a "biggest mover" framing that explains the offset.
   if (driver && driver.name && Math.abs(driver.share) >= 5) {
     const direction = totals.diff > 0 ? 'increase' : 'decline';
-    bullets.push(`**The biggest driver of the ${direction} ${hereWord} is ${expandCrime(driver.name)}:** it accounts for ${Math.round(Math.abs(driver.share))}% of the ${direction} in the index total (${Math.abs(driver.diff).toLocaleString()} ${driver.diff < 0 ? 'fewer' : 'more'} cases than last year).`);
+    const absShare = Math.abs(driver.share);
+    const dCrime = expandCrime(driver.name);
+    const dAbs = Math.abs(driver.diff).toLocaleString();
+    if (absShare <= 100) {
+      bullets.push(`**The biggest driver of the ${direction} ${hereWord} is ${dCrime}:** it accounts for ${Math.round(absShare)}% of the net ${direction} in the major-crime index (${dAbs} ${driver.diff < 0 ? 'fewer' : 'more'} cases than last year).`);
+    } else {
+      bullets.push(`**The biggest mover ${hereWord} is ${dCrime}:** it ${driver.diff < 0 ? 'fell' : 'rose'} by ${dAbs} cases — more than the index's net ${direction} of ${Math.abs(totals.diff).toLocaleString()}, because other offenses moved the opposite way over the same period.`);
+    }
   }
 
   // 3. Crime types above pre-pandemic baseline — citywide + precincts.
@@ -183,11 +255,11 @@ function buildBullets({ parsedData, hotspots, rawData, activeGeo, activeTab, isT
   if (isCitywide || isBorough) {
     const spike = hotspots?.topPctSpike;
     if (spike && typeof spike.pct === 'number' && spike.pct >= 25) {
-      bullets.push(`**The sharpest local decline is ${expandCrime(spike.crime)} in the ${toOrdinalPrecinct(spike.precinct)}:** up ${Math.round(spike.pct)}% ${periodWord}, from ${spike.prior.toLocaleString()} to ${spike.current.toLocaleString()}.`);
+      bullets.push(`**The sharpest local decline is ${expandCrime(spike.crime)} in the [[${toOrdinalPrecinct(spike.precinct)}]]:** up ${Math.round(spike.pct)}% ${periodWord}, from ${spike.prior.toLocaleString()} to ${spike.current.toLocaleString()}.`);
     }
     const drop = hotspots?.topPctDrop;
     if (drop && typeof drop.pct === 'number' && drop.pct <= -25) {
-      bullets.push(`**The sharpest local improvement is ${expandCrime(drop.crime)} in the ${toOrdinalPrecinct(drop.precinct)}:** down ${Math.round(Math.abs(drop.pct))}% ${periodWord}, from ${drop.prior.toLocaleString()} to ${drop.current.toLocaleString()}.`);
+      bullets.push(`**The sharpest local improvement is ${expandCrime(drop.crime)} in the [[${toOrdinalPrecinct(drop.precinct)}]]:** down ${Math.round(Math.abs(drop.pct))}% ${periodWord}, from ${drop.prior.toLocaleString()} to ${drop.current.toLocaleString()}.`);
     }
   }
 
@@ -222,7 +294,7 @@ function buildBullets({ parsedData, hotspots, rawData, activeGeo, activeTab, isT
 /* ------------------------------------------------------------------ */
 /* HEADLINES TAB                                                       */
 /* ------------------------------------------------------------------ */
-export default function Headlines({ parsedData, hotspots, rawData, activeTab, activeGeo, isTouristPrecinct, activePop, rtciData, downloadCSV }) {
+export default function Headlines({ parsedData, hotspots, rawData, activeTab, activeGeo, isTouristPrecinct, activePop, rtciData, downloadCSV, onSelectGeo }) {
   const { totals, felonies, period } = parsedData;
 
   // Violent / property subsets of the 7-felony major index.
@@ -310,13 +382,16 @@ export default function Headlines({ parsedData, hotspots, rawData, activeTab, ac
               {bullets.map((b, i) => (
                 <li key={i} className="flex gap-3 font-serif text-[15px] leading-relaxed text-gray-700">
                   <span className="text-gray-300 flex-shrink-0 mt-[1px]">▪</span>
-                  <span>{renderMarkdown(b)}</span>
+                  <span>{renderBullet(b, onSelectGeo || (() => {}))}</span>
                 </li>
               ))}
             </ul>
           )}
         </div>
-        <NationalSidebar rtciData={rtciData} downloadCSV={downloadCSV} />
+        <div className="space-y-6">
+          <LocatorMap activeGeo={activeGeo} />
+          <NationalSidebar rtciData={rtciData} downloadCSV={downloadCSV} />
+        </div>
       </section>
     </div>
   );

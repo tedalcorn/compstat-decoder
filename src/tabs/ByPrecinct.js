@@ -158,7 +158,9 @@ const PrecinctRankingBars = ({ precinctRates, onSelect, mapMode = 'rate', hovere
       return { top5: valid.slice(0, 5), bottom5: valid.slice(-5).reverse() };
     }
     const valid = precinctRates.filter(p => p.rate != null && !p.isTourist).sort((a, b) => b.rate - a.rate);
-    return { top5: valid.slice(0, 5), bottom5: valid.slice(-5).reverse() };
+    // Lowest-rate list reads top-to-bottom from 5th-lowest down to the very lowest (descending),
+    // mirroring the highest list which runs highest → 5th-highest.
+    return { top5: valid.slice(0, 5), bottom5: valid.slice(-5) };
   }, [precinctRates, mapMode]);
 
   const renderBar = (item, color, maxW, maxVal) => {

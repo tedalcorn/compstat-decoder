@@ -191,45 +191,19 @@ export default function Transit({ rawData, downloadCSV }) {
 
       {/* By offense type — always visible */}
       <section>
-        {breakdown && (
-          <div className="flex items-end justify-end gap-4 mb-4">
-            <div className="text-right">
-              <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">{breakdown.periodLabel === 'Full year' ? 'Annual total' : 'Period total'}</div>
-              <div className="text-[22px] font-black tabular-nums text-black leading-tight">{breakdown.totalCur.toLocaleString()}</div>
-              <div className="text-[12px] tabular-nums" style={{ color: pctColor(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100) }}>
-                {formatPct(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100)} vs {breakdown.totalPri.toLocaleString()}
-              </div>
-            </div>
-            {downloadCSV && (
-              <button
-                onClick={() => {
-                  const header = ['Offense', `${breakdown.year}`, `${breakdown.priorYear}`, 'YTD change (incidents)', 'YTD change (%)'];
-                  const data = breakdown.rows.map(r => [r.label, r.cur, r.prior, r.diff, typeof r.pct === 'number' ? r.pct.toFixed(2) : '']);
-                  downloadCSV(`transit_crime_${breakdown.year}_vs_${breakdown.priorYear}.csv`, [header, ...data]);
-                }}
-                title="Download this table as CSV"
-                className="text-[10px] font-bold text-gray-400 hover:text-black flex items-center gap-1 transition-colors self-center"
-              >
-                <Download size={11} /> CSV
-              </button>
-            )}
-          </div>
-        )}
-
         {breakdownLoading && <div className="text-[13px] text-gray-400 italic py-4">Fetching per-offense breakdown from NYC Open Data…</div>}
         {breakdownErr && <div className="text-[13px] text-gray-400 italic py-4">Per-offense breakdown unavailable — NYC Open Data could not be reached.</div>}
         {breakdown && (
           <div>
             <div className="flex items-center gap-4 pb-2.5 mb-1 border-b border-gray-300 bg-gray-50 -mx-2 px-2 rounded-sm">
               <span className="w-40 text-left text-[10px] font-black uppercase tracking-widest text-gray-400">Offense</span>
-              <div className="flex-1 min-w-[140px] flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+              <div className="flex-1 min-w-[120px] flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">
                 <span className="flex items-center gap-1.5"><span className="inline-block w-4 h-[7px] bg-gray-900 rounded-sm" /> {breakdown.year}</span>
                 <span className="flex items-center gap-1.5"><span className="inline-block w-4 h-[7px] bg-gray-300 rounded-sm" /> {breakdown.priorYear}</span>
               </div>
               <span className="w-16 text-right"><SortHeader field="volume">{breakdown.year}</SortHeader></span>
-              <span className="w-16 text-right text-[10px] font-black uppercase tracking-widest text-gray-400">{breakdown.priorYear}</span>
-              <span className="w-24 text-right"><SortHeader field="delta">YTD change (incidents)</SortHeader></span>
-              <span className="w-24 text-right"><SortHeader field="change">YTD change (%)</SortHeader></span>
+              <span className="w-52 text-right"><SortHeader field="delta">YTD change (incidents)</SortHeader></span>
+              <span className="w-20 text-right"><SortHeader field="change">YTD change (%)</SortHeader></span>
             </div>
             {sorted.map(r => {
               // Bars below this threshold render as unreadable slivers; hide them entirely
@@ -246,19 +220,44 @@ export default function Transit({ rawData, downloadCSV }) {
               return (
                 <div key={r.name} className="flex items-center gap-4 py-2 text-[14px] border-b border-gray-50 hover:bg-gray-50/60 -mx-2 px-2 rounded-sm transition-colors">
                   <span className="w-40 flex-shrink-0 font-bold text-gray-800 truncate" title={r.label}>{r.label}</span>
-                  <div className="flex-1 min-w-[140px]">
+                  <div className="flex-1 min-w-[120px]">
                     <div className="relative h-[20px]">
                       {showCurBar && <div className="absolute top-0 left-0 h-[8px] rounded-sm bg-gray-900" style={{ width: `${curW}%` }} />}
                       {showPriBar && <div className="absolute top-[11px] left-0 h-[8px] rounded-sm bg-gray-300" style={{ width: `${priW}%` }} />}
                     </div>
                   </div>
                   <span className="w-16 text-right tabular-nums font-black text-black">{r.cur.toLocaleString()}</span>
-                  <span className="w-16 text-right tabular-nums text-gray-400">{r.prior.toLocaleString()}</span>
-                  <span className="w-24 text-right tabular-nums font-bold" style={{ color: pctColor(r.diff) }}>{deltaStr}</span>
-                  <span className="w-24 text-right tabular-nums font-bold" style={{ color: pctColor(r.pct) }}>{formatPct(r.pct)}</span>
+                  <span className="w-52 text-right tabular-nums">
+                    <span className="font-bold" style={{ color: pctColor(r.diff) }}>{deltaStr}</span>
+                    <span className="text-gray-400 font-normal text-[12px]"> (compared to {r.prior.toLocaleString()} in {yy(breakdown.priorYear)})</span>
+                  </span>
+                  <span className="w-20 text-right tabular-nums font-bold" style={{ color: pctColor(r.pct) }}>{formatPct(r.pct)}</span>
                 </div>
               );
             })}
+            {/* Period total + CSV below the table */}
+            <div className="flex items-center justify-end gap-5 mt-3 pt-3 border-t-2 border-gray-300">
+              {downloadCSV && (
+                <button
+                  onClick={() => {
+                    const header = ['Offense', `${breakdown.year}`, `${breakdown.priorYear}`, 'YTD change (incidents)', 'YTD change (%)'];
+                    const data = breakdown.rows.map(r => [r.label, r.cur, r.prior, r.diff, typeof r.pct === 'number' ? r.pct.toFixed(2) : '']);
+                    downloadCSV(`transit_crime_${breakdown.year}_vs_${breakdown.priorYear}.csv`, [header, ...data]);
+                  }}
+                  title="Download this table as CSV"
+                  className="text-[10px] font-bold text-gray-400 hover:text-black flex items-center gap-1 transition-colors"
+                >
+                  <Download size={11} /> CSV
+                </button>
+              )}
+              <div className="flex items-baseline gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">{breakdown.periodLabel === 'Full year' ? 'Annual total' : 'Period total'}</span>
+                <span className="text-[20px] font-black tabular-nums text-black leading-none">{breakdown.totalCur.toLocaleString()}</span>
+                <span className="text-[12px] tabular-nums" style={{ color: pctColor(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100) }}>
+                  {formatPct(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100)} vs {breakdown.totalPri.toLocaleString()} in {yy(breakdown.priorYear)}
+                </span>
+              </div>
+            </div>
           </div>
         )}
 

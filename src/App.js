@@ -17,12 +17,16 @@ import About from './tabs/About';
 const MAIN_TABS = [
   ['headlines', 'Headlines'],
   ['numbers', 'Crime Numbers'],
-  ['transit', 'Transit'],
+  ['transit', 'In Transit'],
   ['precincts', 'By Precinct'],
   ['council', 'By Council District'],
   ['about', 'About'],
 ];
 const TAB_KEYS = MAIN_TABS.map(t => t[0]);
+// Tabs where the global geography selector does nothing (they're citywide-only or bring
+// their own selector), and tabs that are year-to-date only (weekly counts unavailable/too small).
+const GEO_INERT_TABS = ['transit', 'precincts', 'council'];
+const YTD_ONLY_TABS = ['transit', 'council'];
 
 /* ------------------------------------------------------------------ */
 /* MAIN APP — TABBED DASHBOARD                                        */
@@ -82,6 +86,11 @@ export default function App() {
     }
   }, [appView, mainTab, activeTab, activeGeo, mapMode, mapCrime, districtNum]);
 
+  // Weekly counts don't apply on the transit and council tabs — snap back to YTD there.
+  useEffect(() => {
+    if (YTD_ONLY_TABS.includes(mainTab) && activeTab === 'wtd') setActiveTab('ytd');
+  }, [mainTab, activeTab]);
+
   // Generic CSV download helper. Takes a filename and an array of arrays (header + rows).
   const downloadCSV = useCallback((filename, rows) => {
     const escapeCell = (c) => {
@@ -120,6 +129,12 @@ export default function App() {
   const selectPrecinctForNumbers = (geoKey) => {
     setActiveGeo(geoKey);
     setMainTab('numbers');
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0 });
+  };
+  // Used by precinct hyperlinks in Headlines patterns: focus that precinct's overview.
+  const goToGeoHeadlines = (geoKey) => {
+    setActiveGeo(geoKey);
+    setMainTab('headlines');
     if (typeof window !== 'undefined') window.scrollTo({ top: 0 });
   };
 
@@ -270,6 +285,8 @@ export default function App() {
 
   const isTouristPrecinct = TOURIST_PRECINCTS.includes(activeGeo);
   const activePop = GEO_POPULATIONS[activeGeo] || (activeGeo === 'citywide' ? CITYWIDE_POPULATION : null);
+  const geoInert = GEO_INERT_TABS.includes(mainTab); // geography selector does nothing here
+  const ytdOnly = YTD_ONLY_TABS.includes(mainTab);   // weekly unavailable here
 
   // Compute per-100k rates for all precincts (for map + ranking bars)
   const precinctRates = useMemo(() => {
@@ -334,17 +351,19 @@ export default function App() {
           </nav>
           <div className="ml-auto flex items-center gap-1.5">
             <div className="relative w-36">
-              <SearchIcon size={13} className="absolute left-2.5 top-[9px] pointer-events-none text-gray-400" />
+              <SearchIcon size={13} className={`absolute left-2.5 top-[9px] pointer-events-none ${geoInert ? 'text-gray-300' : 'text-gray-400'}`} />
               <input
                 type="text"
+                disabled={geoInert}
+                title={geoInert ? 'Geography selection applies to Headlines and Crime Numbers' : undefined}
                 placeholder={geoFocused ? "Neighborhood or precinct..." : ""}
                 value={geoFocused ? searchQuery : (activeGeo === 'citywide' ? 'Citywide' : formatGeoName(activeGeo))}
                 onChange={e => setSearchQuery(e.target.value)}
-                onFocus={e => { setGeoFocused(true); setSearchQuery(''); e.target.value = ''; }}
+                onFocus={e => { if (geoInert) return; setGeoFocused(true); setSearchQuery(''); e.target.value = ''; }}
                 onBlur={() => setTimeout(() => { setGeoFocused(false); setSearchQuery(''); }, 200)}
-                className={`w-full text-[11px] font-bold py-1.5 pl-8 pr-2 rounded border bg-white focus:outline-none truncate ${geoFocused ? 'border-indigo-400' : 'border-gray-300'}`}
+                className={`w-full text-[11px] font-bold py-1.5 pl-8 pr-2 rounded border focus:outline-none truncate ${geoInert ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed' : geoFocused ? 'bg-white border-indigo-400' : 'bg-white border-gray-300'}`}
               />
-              {geoFocused && (
+              {geoFocused && !geoInert && (
                 <div className="absolute top-full right-0 w-72 mt-1 bg-white border border-gray-200 shadow-xl rounded z-50 max-h-72 overflow-y-auto">
                   {geoSearchResults.showCitywide && (
                     <button onMouseDown={() => { selectGeo('citywide'); setGeoFocused(false); setSearchQuery(''); }} className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b border-gray-100 ${activeGeo === 'citywide' ? 'bg-gray-50 font-black' : ''}`}>
@@ -379,7 +398,7 @@ export default function App() {
               )}
             </div>
             <div className="flex border border-gray-300 rounded overflow-hidden shrink-0">
-              <button onClick={() => setActiveTab('wtd')} aria-pressed={activeTab === 'wtd'} title="This CompStat week vs the same week last year" className={`px-2 py-1.5 text-[10px] font-black uppercase tracking-wide transition-colors ${activeTab === 'wtd' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:text-black'}`}>Wk</button>
+              <button onClick={() => !ytdOnly && setActiveTab('wtd')} disabled={ytdOnly} aria-pressed={activeTab === 'wtd'} title={ytdOnly ? 'Weekly data is not available on this view' : 'This CompStat week vs the same week last year'} className={`px-2 py-1.5 text-[10px] font-black uppercase tracking-wide transition-colors ${ytdOnly ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : activeTab === 'wtd' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:text-black'}`}>Wk</button>
               <button onClick={() => setActiveTab('ytd')} aria-pressed={activeTab === 'ytd'} title="Year-to-date vs the same period last year" className={`px-2 py-1.5 text-[10px] font-black uppercase tracking-wide transition-colors ${activeTab === 'ytd' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:text-black'}`}>YTD</button>
             </div>
             <button onClick={() => setAppView('historic')} title="The 30-year transformation of NYC crime" className="text-[11px] font-bold text-gray-400 hover:text-black transition-colors flex items-center gap-1 flex-shrink-0 whitespace-nowrap">
@@ -400,6 +419,7 @@ export default function App() {
             activePop={activePop}
             rtciData={rtciData}
             downloadCSV={downloadCSV}
+            onSelectGeo={goToGeoHeadlines}
           />
         )}
         {mainTab === 'numbers' && (

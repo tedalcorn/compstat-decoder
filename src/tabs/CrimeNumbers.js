@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import crimeHistory from '../data/crime_history.json';
 import {
   VC, VOLATILITY_THRESHOLD, offenseClass, expandCrimeTitle,
-  getHistoricalContext, ContextSparkline, MiniSparkline, Download,
+  getHistoricalContext, ContextSparkline, Download,
 } from '../shared';
 
 /* ------------------------------------------------------------------ */
@@ -43,8 +43,6 @@ export default function CrimeNumbers({ parsedData, activeTab, activeGeo, isTouri
       return 0;
     });
   }, [parsedData.all, classFilter, sortBy, sortDir]);
-
-  const maxCurrent = Math.max(1, ...parsedData.all.map(o => o.current || 0));
 
   const handleSort = (field, defaultDir = 'desc') => {
     if (sortBy === field) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
@@ -101,54 +99,42 @@ export default function CrimeNumbers({ parsedData, activeTab, activeGeo, isTouri
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[900px]">
+        <table className="w-full text-left border-collapse min-w-[760px]">
           <thead>
             <tr className="border-b-2 border-black">
               <SortTh field="name" align="left" defaultDir="asc">Offense (Crime type)</SortTh>
-              {/* One label centered over both the volume bar and the count so it reads for both */}
-              <th colSpan={2} className="py-2 text-center">
-                <button onClick={() => handleSort('current')} title="Click to sort" className={`text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${sortBy === 'current' ? 'text-black' : 'text-gray-400 hover:text-black'}`}>{colYear}</button>
-              </th>
+              <SortTh field="current">{colYear}</SortTh>
               <SortTh field="diff">Year-on-year change (incidents)</SortTh>
               <SortTh field="pct">Year-on-year change (%)</SortTh>
-              {isCitywide && <th className="py-2 text-center hidden md:table-cell"><span className="text-[10px] font-black uppercase tracking-widest text-gray-400 cursor-help underline decoration-dotted decoration-gray-300 underline-offset-[3px]" title={TREND_TOOLTIP}>Trend</span></th>}
+              {isCitywide && <th className="py-2 text-center hidden md:table-cell"><span className="text-[10px] font-black uppercase tracking-widest text-gray-400 cursor-help underline decoration-dotted decoration-gray-300 underline-offset-[3px]" title={TREND_TOOLTIP}>Trend since {crimeHistory.citywide[0].y}</span></th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.map(item => {
               const isVolatile = item.prior < VOLATILITY_THRESHOLD;
               const cls = offenseClass(item.name);
-              const barColor = cls === 'Person' ? VC.magenta : cls === 'Property' ? VC.indigo : VC.periwinkle;
-              const barW = Math.max(2, (item.current / maxCurrent) * 100);
               const ctx = isCitywide ? getHistoricalContext(crimeHistory.citywide, item, currentYear) : null;
               return (
                 <tr key={item.name} className="hover:bg-gray-50 transition-colors">
-                  <td className="py-1 pr-3 font-bold text-sm text-black whitespace-nowrap">
+                  <td className="py-1 pr-8 font-bold text-sm text-black whitespace-nowrap">
                     <span title={item.name === 'UCR Rape*' ? UCR_RAPE_NOTE : undefined} className={item.name === 'UCR Rape*' ? 'cursor-help decoration-dotted decoration-gray-300 underline underline-offset-[3px]' : undefined}>{displayName(item.name)}{isVolatile && <span className="ml-1 text-gray-400">*</span>}</span>
                     {cls && <span className="ml-1.5 text-[11px] font-semibold" style={{ color: cls === 'Person' ? VC.magenta : VC.indigo }}>({cls})</span>}
                   </td>
-                  <td className="py-1 pl-4 w-[150px] min-w-[110px]">
-                    <div className="h-[9px] bg-gray-100 rounded-sm overflow-hidden">
-                      <div className="h-full rounded-sm" style={{ width: `${barW}%`, background: barColor, opacity: isVolatile ? 0.45 : 0.9 }} />
-                    </div>
-                  </td>
                   <td className={`py-1 text-right tabular-nums text-sm font-black text-black ${isVolatile ? 'opacity-50' : ''}`}>{item.current.toLocaleString()}</td>
-                  <td className={`py-1 text-right tabular-nums text-sm ${isVolatile ? 'opacity-50' : ''}`}>
+                  <td className={`py-1 pl-8 text-right tabular-nums text-sm ${isVolatile ? 'opacity-50' : ''}`}>
                     <span className={`font-bold ${item.diff > 0 ? 'text-orange-700' : item.diff < 0 ? 'text-green-700' : 'text-gray-500'}`}>{item.diff > 0 ? '+' : ''}{item.diff.toLocaleString()}</span>
                     <span className="text-gray-400 font-normal text-[12px]"> (from {item.prior.toLocaleString()} in {colPrior})</span>
                   </td>
-                  <td className={`py-1 text-right text-xs font-bold tabular-nums ${item.pct > 0 ? 'text-orange-600' : item.pct < 0 ? 'text-green-600' : 'text-gray-500'}`}>
+                  <td className={`py-1 pl-8 text-right text-xs font-bold tabular-nums ${item.pct > 0 ? 'text-orange-600' : item.pct < 0 ? 'text-green-600' : 'text-gray-500'}`}>
                     <span aria-label={`${item.pct > 0 ? 'Up' : 'Down'} ${Math.abs(item.pct ?? 0).toFixed(1)} percent`}>
                       <span aria-hidden="true">{item.pct > 0 ? '▲' : item.pct < 0 ? '▼' : '•'}</span> {typeof item.pct === 'number' ? Math.abs(item.pct).toFixed(1) + '%' : '—'}
                     </span>
                   </td>
                   {isCitywide && (
-                    <td className="py-1 text-center hidden md:table-cell">
-                      {ctx ? (
-                        <ContextSparkline series={ctx.series} annualized={ctx.annualized} preLow={ctx.preLow} preHigh={ctx.preHigh} height={18} />
-                      ) : (
-                        <MiniSparkline points={[item.prior, item.current]} minY={0} height={14} />
-                      )}
+                    <td className="py-1 pl-6 text-right hidden md:table-cell">
+                      {ctx
+                        ? <ContextSparkline series={ctx.series} annualized={ctx.annualized} preLow={ctx.preLow} preHigh={ctx.preHigh} width={150} height={22} />
+                        : <span className="text-gray-300 text-[11px]" title="No 30-year history for this category">—</span>}
                     </td>
                   )}
                 </tr>
