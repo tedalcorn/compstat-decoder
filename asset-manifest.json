@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/compstat-decoder/static/css/main.501d3d50.css",
-    "main.js": "/compstat-decoder/static/js/main.e79c66e4.js",
+    "main.css": "/compstat-decoder/static/css/main.362f2f15.css",
+    "main.js": "/compstat-decoder/static/js/main.c0d69c1e.js",
     "index.html": "/compstat-decoder/index.html",
-    "main.501d3d50.css.map": "/compstat-decoder/static/css/main.501d3d50.css.map",
-    "main.e79c66e4.js.map": "/compstat-decoder/static/js/main.e79c66e4.js.map"
+    "main.362f2f15.css.map": "/compstat-decoder/static/css/main.362f2f15.css.map",
+    "main.c0d69c1e.js.map": "/compstat-decoder/static/js/main.c0d69c1e.js.map"
   },
   "entrypoints": [
-    "static/css/main.501d3d50.css",
-    "static/js/main.e79c66e4.js"
+    "static/css/main.362f2f15.css",
+    "static/js/main.c0d69c1e.js"
   ]
 }
