@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { geoPath, geoMercator } from 'd3-geo';
 import precinctGeoJSON from '../data/nyc_precincts.json';
 import {
-  GEO_POPULATIONS, PRECINCT_NEIGHBORHOODS, VC, dirPct,
+  GEO_POPULATIONS, PRECINCT_NEIGHBORHOODS, VC,
   crimeColor, changeColor, TrendingUp, TrendingDown,
 } from '../shared';
 
@@ -163,13 +163,30 @@ const PrecinctRankingBars = ({ precinctRates, onSelect, mapMode = 'rate', hovere
     return { top5: valid.slice(0, 5), bottom5: valid.slice(-5) };
   }, [precinctRates, mapMode]);
 
-  const renderBar = (item, color, maxW, maxVal) => {
+  // Arrow-shaped bars: increases point right (anchored left), decreases point left
+  // (anchored right), so the two lists mirror each other around a center gutter.
+  const RIGHT_ARROW = 'polygon(0 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 0 100%)';
+  const LEFT_ARROW = 'polygon(100% 0, 7px 0, 0 50%, 7px 100%, 100% 100%)';
+
+  const renderRow = (item, color, maxVal, dir) => {
     const val = mapMode === 'change' ? Math.abs(item.pctChange) : item.rate;
-    const barW = Math.max(4, (val / (maxVal || 1)) * maxW);
+    const barPct = Math.max(3, (val / (maxVal || 1)) * 100);
     const hood = PRECINCT_NEIGHBORHOODS[item.precinct];
     const label = hood ? `${item.precinct.replace(' Precinct', '')} (${hood.split(',')[0]})` : item.precinct.replace(' Precinct', '');
-    const displayVal = mapMode === 'change' ? dirPct(item.pctChange) : item.rate.toFixed(0);
+    const displayVal = mapMode === 'change' ? `${Math.abs(item.pctChange).toFixed(1).replace(/\.0$/, '')}%` : item.rate.toFixed(0);
     const isActive = hoveredPrecinctNum === item.precinctNum;
+    const nameEl = (
+      <span className="text-[11px] font-bold text-gray-800 w-28 truncate flex-shrink-0 flex items-center gap-1" title={item.precinct}>
+        {label}
+        {item.isTourist && <span className="text-[7px] font-black uppercase tracking-wide px-1 rounded-sm bg-gray-800 text-white" title="Tourist hub">T</span>}
+      </span>
+    );
+    const valueEl = <span className="text-[11px] font-bold tabular-nums whitespace-nowrap w-12 flex-shrink-0" style={{ color, textAlign: dir === 'down' ? 'left' : 'right' }}>{displayVal}</span>;
+    const barEl = (
+      <div className={`flex-1 flex items-center min-w-0 ${dir === 'down' ? 'justify-end' : ''}`}>
+        <div className="h-[15px]" style={{ width: `${barPct}%`, minWidth: 14, background: color, clipPath: dir === 'down' ? LEFT_ARROW : RIGHT_ARROW }} />
+      </div>
+    );
     return (
       <div
         key={item.precinct}
@@ -178,14 +195,7 @@ const PrecinctRankingBars = ({ precinctRates, onSelect, mapMode = 'rate', hovere
         onMouseEnter={() => onHover && onHover(item.precinctNum)}
         onMouseLeave={() => onHover && onHover(null)}
       >
-        <span className="text-[11px] font-bold text-gray-800 w-28 truncate flex-shrink-0 flex items-center gap-1" title={item.precinct}>
-          {label}
-          {item.isTourist && <span className="text-[7px] font-black uppercase tracking-wide px-1 rounded-sm bg-gray-800 text-white" title="Tourist hub — visitor population inflates totals">T</span>}
-        </span>
-        <div className="flex-1 flex items-center gap-2">
-          <div className="h-4 rounded-sm" style={{ width: `${(barW / maxW) * 100}%`, minWidth: 4, background: color }} />
-          <span className="text-[11px] font-bold tabular-nums whitespace-nowrap" style={{ color }}>{displayVal}</span>
-        </div>
+        {dir === 'up' ? <>{nameEl}{barEl}{valueEl}</> : <>{valueEl}{barEl}{nameEl}</>}
       </div>
     );
   };
@@ -199,13 +209,13 @@ const PrecinctRankingBars = ({ precinctRates, onSelect, mapMode = 'rate', hovere
         <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 flex items-center gap-1" style={{ color: VC.magenta }}>
           <TrendingUp size={12} /> {mapMode === 'change' ? 'Biggest % increases' : 'Highest rate (per 100k)'}
         </div>
-        {top5.map(item => renderBar(item, VC.magenta, 200, topMax))}
+        {top5.map(item => renderRow(item, VC.magenta, topMax, 'up'))}
       </div>
       <div className="mt-4 pt-3 border-t border-gray-100">
-        <div className="text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-1" style={{ color: VC.green }}>
-          <TrendingDown size={12} /> {mapMode === 'change' ? 'Biggest % decreases' : 'Lowest rate (per 100k)'}
+        <div className="text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-1 justify-end" style={{ color: VC.green }}>
+          {mapMode === 'change' ? 'Biggest % decreases' : 'Lowest rate (per 100k)'} <TrendingDown size={12} />
         </div>
-        {bottom5.map(item => renderBar(item, VC.green, 200, botMax))}
+        {bottom5.map(item => renderRow(item, VC.green, botMax, 'down'))}
       </div>
     </div>
   );
@@ -251,10 +261,8 @@ export default function ByPrecinct({ precinctRates, mapMode, setMapMode, mapCrim
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        <div className="max-w-[480px]">
-          <PrecinctMap precinctRates={precinctRates} onSelect={onSelectPrecinct} mapMode={mapMode} externalHovered={hoveredPrecinctNum} onHover={setHoveredPrecinctNum} />
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 items-start">
+        <PrecinctMap precinctRates={precinctRates} onSelect={onSelectPrecinct} mapMode={mapMode} externalHovered={hoveredPrecinctNum} onHover={setHoveredPrecinctNum} />
         <PrecinctRankingBars precinctRates={precinctRates} onSelect={onSelectPrecinct} mapMode={mapMode} hoveredPrecinctNum={hoveredPrecinctNum} onHover={setHoveredPrecinctNum} />
       </div>
     </div>

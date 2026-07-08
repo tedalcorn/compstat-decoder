@@ -16,27 +16,33 @@ const MAJORS = ['Murder', 'Rape', 'Robbery', 'Fel. Assault', 'Burglary', 'Gr. La
 /* dataset's latitude/longitude FIELD NAMES ARE SWAPPED, so we read    */
 /* `latitude` as lng and `longitude` as lat. Fetched once, cached.     */
 /* ------------------------------------------------------------------ */
+// Fetch ALL YTD incidents (not just geocoded ones) so we can report what share have a
+// mapped location. For 2026 the coordinates are true street-level — verified 137 of 138
+// distinct points at 6–8 decimal precision, not precinct centroids.
 const SHOOTINGS_URL = "https://data.cityofnewyork.us/resource/5ucz-vwe8.json?" +
   "$select=incident_key,occur_date,occur_time,boro,precinct,loc_of_occur_desc,loc_classfctn_desc,location_desc,latitude,longitude" +
-  "&$where=occur_date>='2026-01-01' AND latitude IS NOT NULL&$order=occur_date&$limit=5000";
+  "&$where=occur_date>='2026-01-01'&$order=occur_date&$limit=5000";
 let _shootingsPromise = null;
 const fetchShootings = () => {
   if (_shootingsPromise) return _shootingsPromise;
   _shootingsPromise = fetch(SHOOTINGS_URL)
     .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
-    .then(rows => rows.map(r => ({
-      key: r.incident_key,
-      lng: parseFloat(r.latitude),  // field names are swapped in this dataset
-      lat: parseFloat(r.longitude),
-      date: r.occur_date ? r.occur_date.slice(0, 10) : '',
-      time: r.occur_time || '',
-      boro: r.boro || '',
-      precinct: r.precinct || '',
-      locationDesc: r.location_desc || '',
-      locClass: r.loc_classfctn_desc || '',
-      locOccur: r.loc_of_occur_desc || '',
-    })).filter(s => isFinite(s.lng) && isFinite(s.lat)))
-    .catch(() => { _shootingsPromise = null; return []; });
+    .then(rows => {
+      const points = rows.map(r => ({
+        key: r.incident_key,
+        lng: parseFloat(r.latitude),  // field names are swapped in this dataset
+        lat: parseFloat(r.longitude),
+        date: r.occur_date ? r.occur_date.slice(0, 10) : '',
+        time: r.occur_time || '',
+        boro: r.boro || '',
+        precinct: r.precinct || '',
+        locationDesc: r.location_desc || '',
+        locClass: r.loc_classfctn_desc || '',
+        locOccur: r.loc_of_occur_desc || '',
+      })).filter(s => isFinite(s.lng) && isFinite(s.lat));
+      return { points, total: rows.length, located: points.length };
+    })
+    .catch(() => { _shootingsPromise = null; return { points: [], total: 0, located: 0 }; });
   return _shootingsPromise;
 };
 
@@ -380,11 +386,11 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
     fetchShootings().then(d => { if (alive) setShootings(d); });
     return () => { alive = false; };
   }, []);
-  // Date span + citywide count of the mapped shootings, for an honest coverage note.
+  // Date span + coverage of the shootings, for an honest note.
   const shootingWindow = useMemo(() => {
-    if (!shootings || !shootings.length) return null;
-    const dates = shootings.map(s => s.date).filter(Boolean).sort();
-    return { from: dates[0], to: dates[dates.length - 1], n: shootings.length };
+    if (!shootings || !shootings.points.length) return null;
+    const dates = shootings.points.map(s => s.date).filter(Boolean).sort();
+    return { from: dates[0], to: dates[dates.length - 1], located: shootings.located, total: shootings.total };
   }, [shootings]);
 
   const period = rawData?.citywide?.report_period || {};
@@ -491,23 +497,14 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_1fr] gap-8 items-stretch">
-        <div className="flex flex-col h-full">
-          <div className="flex-1 min-h-0">
-            <DistrictMap
-              district={district}
-              onSelectPrecinct={onSelectPrecinct}
-              shootings={shootings}
-              showShootings={showShootings}
-              setShowShootings={setShowShootings}
-              shootingsLoaded={shootings != null}
-            />
-          </div>
-          {showShootings && shootingWindow && (
-            <p className="mt-2.5 text-[11px] font-serif italic text-gray-500 leading-snug">
-              {shootingWindow.n} shooting incidents reported citywide {fmtDate(shootingWindow.from)}–{fmtDate(shootingWindow.to)}, nearly all with a mapped location, from NYPD Open Data. Click a dot for details. The year-to-date file refreshes quarterly, so the most recent weeks aren't shown yet.
-            </p>
-          )}
-        </div>
+        <DistrictMap
+          district={district}
+          onSelectPrecinct={onSelectPrecinct}
+          shootings={shootings?.points}
+          showShootings={showShootings}
+          setShowShootings={setShowShootings}
+          shootingsLoaded={shootings != null}
+        />
 
         <div>
           <div className="flex items-baseline justify-between gap-3 mb-3">
@@ -592,6 +589,12 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
         </div>
       </div>
 
+      {/* Shootings coverage note (below the grid, so toggling never resizes the map) */}
+      {showShootings && shootingWindow && (
+        <p className="mt-4 text-[11px] font-serif italic text-gray-500 leading-snug max-w-3xl">
+          {shootingWindow.total} shooting incidents were reported citywide {fmtDate(shootingWindow.from)}–{fmtDate(shootingWindow.to)}, {shootingWindow.located} of them ({Math.round((shootingWindow.located / shootingWindow.total) * 100)}%) with a precise mapped location — the rest lacked coordinates. Dots show the {shootingWindow.located} mapped incidents; click one for details. Source: NYPD Open Data, refreshed quarterly, so the most recent weeks aren't shown yet.
+        </p>
+      )}
     </div>
   );
 }
