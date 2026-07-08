@@ -384,7 +384,6 @@ export const RTCI_FALLBACK_UPDATED = '2026-02-17';
 
 // Comparison groups — cities must match agency_name in RTCI CSV
 export const RTCI_GROUPS = [
-  { key: 'largest5', label: '5 Largest', cities: ['New York City', 'Los Angeles', 'Chicago', 'Houston', 'Philadelphia'] },
   { key: 'largest10', label: '10 Largest', cities: ['New York City', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Philadelphia', 'San Antonio', 'San Diego', 'Dallas', 'Jacksonville'] },
   { key: 'northeast', label: 'Northeast', cities: ['New York City', 'Philadelphia', 'Baltimore', 'Boston', 'Pittsburgh', 'Washington', 'Buffalo'] },
 ];

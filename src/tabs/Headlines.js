@@ -23,7 +23,10 @@ const NationalSidebar = ({ rtciData, downloadCSV }) => {
     try { return localStorage.getItem('rtci_metric') || 'murder'; } catch { return 'murder'; }
   });
   const [activeGroup, setActiveGroup] = useState(() => {
-    try { return localStorage.getItem('rtci_group') || 'largest5'; } catch { return 'largest5'; }
+    try {
+      const saved = localStorage.getItem('rtci_group');
+      return RTCI_GROUPS.some(g => g.key === saved) ? saved : 'largest10';
+    } catch { return 'largest10'; }
   });
   useEffect(() => { try { localStorage.setItem('rtci_metric', activeMetric); } catch {} }, [activeMetric]);
   useEffect(() => { try { localStorage.setItem('rtci_group', activeGroup); } catch {} }, [activeGroup]);
@@ -270,7 +273,7 @@ export default function Headlines({ parsedData, hotspots, rawData, activeTab, ac
         <h1 className="text-[22px] sm:text-[26px] lg:text-[29px] font-black leading-[1.15] tracking-tight mb-5 text-black">
           Major index offenses are {totals.diff > 0 ? 'up' : 'down'} {Math.abs(totals.mPct).toFixed(1)}% {activeTab === 'ytd' ? 'year-to-date' : 'this week'} {activeGeo === 'citywide' ? '' : `in the ${activeGeo} `}vs. prior year.
         </h1>
-        <div className="divide-y divide-gray-100 border-y border-gray-200 max-w-3xl">
+        <div className="divide-y divide-gray-100 border-y border-gray-200 max-w-4xl">
           {statLines.map((s, i) => (
             <div key={s.label} className="flex items-baseline gap-4 py-2.5 flex-wrap">
               <span className={`w-40 flex-shrink-0 ${i === 0 ? 'text-[14px] font-black' : 'text-[13px] font-bold text-gray-700 pl-4'}`}>{s.label}</span>
@@ -282,9 +285,9 @@ export default function Headlines({ parsedData, hotspots, rawData, activeTab, ac
                 <span className="mx-1.5 font-bold" style={{ color: (s.pct ?? 0) > 0 ? '#c2410c' : (s.pct ?? 0) < 0 ? '#15803d' : '#6b7280' }} aria-label={(s.pct ?? 0) > 0 ? 'rose to' : 'fell to'}>
                   {(s.pct ?? 0) > 0 ? '↗' : (s.pct ?? 0) < 0 ? '↘' : '→'}
                 </span>
-                {s.cur.toLocaleString()} in {yy(endYear)} {periodWord}
+                <strong className="font-black text-gray-900">{s.cur.toLocaleString()} in {yy(endYear)} {periodWord}</strong>
               </span>
-              <span className="text-[11px] text-gray-400 italic hidden md:inline">{s.sub}</span>
+              <span className="text-[11px] text-gray-400 italic hidden lg:inline">{s.sub}</span>
             </div>
           ))}
         </div>

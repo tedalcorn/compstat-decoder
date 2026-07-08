@@ -163,59 +163,58 @@ export default function Transit({ rawData, downloadCSV }) {
 
   return (
     <div>
-      {/* Headline in the same format as the Headlines tab */}
-      <section className="mb-8">
-        <h2 className="text-2xl sm:text-3xl font-black leading-[1.12] tracking-tight mb-3 text-black max-w-3xl">
+      {/* Headline on the left; a compact vertical table of the same figures on the right. */}
+      <section className="mb-8 pb-6 border-b border-gray-200 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-x-12 gap-y-6 items-start">
+        <h2 className="text-2xl sm:text-3xl font-black leading-[1.12] tracking-tight text-black">
           On subways and buses, major felony incidents are {(ytd.pct_change ?? 0) > 0 ? 'up' : 'down'} {Math.abs(ytd.pct_change ?? 0).toFixed(1)}% year-to-date{typeof ytd.current_year === 'number' && typeof ytd.prior_year === 'number' ? ` (${ytd.current_year.toLocaleString()} in ${yy(endYear)} YTD vs ${ytd.prior_year.toLocaleString()} in ${yy(endYear - 1)} YTD)` : ''}.
         </h2>
-        <div className="flex flex-wrap gap-x-10 gap-y-3 mt-5 pb-6 border-b border-gray-200">
-          <div className="flex flex-col">
-            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Major felonies · last 28 days</span>
-            <span className="mt-1 tabular-nums text-[22px] font-black leading-none">{m28.current_year?.toLocaleString() ?? '—'} <span className="text-[13px] font-bold" style={{ color: pctColor(m28.pct_change) }}>{formatPct(m28.pct_change)}</span></span>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Major felonies · this week</span>
-            <span className="mt-1 tabular-nums text-[22px] font-black leading-none">{wtd.current_year?.toLocaleString() ?? '—'} <span className="text-[13px] font-bold" style={{ color: pctColor(wtd.pct_change) }}>{formatPct(wtd.pct_change)}</span></span>
-          </div>
-          <div className="flex flex-col gap-1 text-[13px] justify-end">
-            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Long view</span>
-            <span className="text-gray-600">vs 2 yrs ago <strong className="tabular-nums ml-1" style={{ color: pctColor(hist['2_yr_pct']) }}>{formatPct(hist['2_yr_pct'])}</strong> · vs 14 yrs ago <strong className="tabular-nums ml-1" style={{ color: pctColor(hist['14_yr_pct']) }}>{formatPct(hist['14_yr_pct'])}</strong></span>
-          </div>
+        <div className="lg:min-w-[240px]">
+          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Major felony incidents</div>
+          <table className="w-full text-[13px] border-collapse">
+            <tbody>
+              {[
+                { label: 'Last 28 days', count: m28.current_year, pct: m28.pct_change },
+                { label: 'This week', count: wtd.current_year, pct: wtd.pct_change },
+                { label: 'vs. 2 years ago', count: null, pct: hist['2_yr_pct'] },
+                { label: 'vs. 14 years ago', count: null, pct: hist['14_yr_pct'] },
+              ].map((r, i, arr) => (
+                <tr key={r.label} className={i < arr.length - 1 ? 'border-b border-gray-100' : ''}>
+                  <td className="py-1.5 pr-4 text-[12px] text-gray-600 whitespace-nowrap">{r.label}</td>
+                  <td className="py-1.5 text-right tabular-nums font-black text-black">{typeof r.count === 'number' ? r.count.toLocaleString() : ''}</td>
+                  <td className="py-1.5 pl-3 text-right tabular-nums font-bold" style={{ color: pctColor(r.pct) }}>{formatPct(r.pct)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
       {/* By offense type — always visible */}
       <section>
-        <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
-          <div>
-            <h3 className="text-[12px] font-black uppercase tracking-widest text-gray-600 mb-1">By offense type{breakdown ? ` · ${breakdown.year} vs ${breakdown.priorYear}` : ''}</h3>
-            <p className="text-[12px] text-gray-500 italic max-w-2xl">{breakdown?.periodLabel === 'Full year' ? 'Full-year totals' : 'Year-to-date totals through the same calendar day in each year'}{breakdown?.periodLabel && breakdown.periodLabel !== 'Full year' ? ` (${breakdown.periodLabel})` : ''} from NYPD complaint-level data (NYC Open Data, transit-district filter). Different counting rules from CompStat above, so totals won't match exactly.</p>
-          </div>
-          {breakdown && (
-            <div className="flex items-start gap-3">
-              {downloadCSV && (
-                <button
-                  onClick={() => {
-                    const header = ['Offense', `${breakdown.year}`, `${breakdown.priorYear}`, 'YTD change (incidents)', 'YTD change (%)'];
-                    const data = breakdown.rows.map(r => [r.label, r.cur, r.prior, r.diff, typeof r.pct === 'number' ? r.pct.toFixed(2) : '']);
-                    downloadCSV(`transit_crime_${breakdown.year}_vs_${breakdown.priorYear}.csv`, [header, ...data]);
-                  }}
-                  title="Download this table as CSV"
-                  className="text-[11px] font-black uppercase tracking-widest text-gray-500 hover:text-black border border-gray-300 rounded px-2.5 py-1.5 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
-                >
-                  <Download size={12} /> CSV
-                </button>
-              )}
-              <div className="text-right">
-                <div className="text-[11px] font-black uppercase tracking-widest text-gray-500">{breakdown.periodLabel === 'Full year' ? 'Annual total' : 'Period total'}</div>
-                <div className="text-[22px] font-black tabular-nums text-black leading-tight">{breakdown.totalCur.toLocaleString()}</div>
-                <div className="text-[12px] tabular-nums" style={{ color: pctColor(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100) }}>
-                  {formatPct(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100)} vs {breakdown.totalPri.toLocaleString()}
-                </div>
+        {breakdown && (
+          <div className="flex items-end justify-end gap-4 mb-4">
+            <div className="text-right">
+              <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">{breakdown.periodLabel === 'Full year' ? 'Annual total' : 'Period total'}</div>
+              <div className="text-[22px] font-black tabular-nums text-black leading-tight">{breakdown.totalCur.toLocaleString()}</div>
+              <div className="text-[12px] tabular-nums" style={{ color: pctColor(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100) }}>
+                {formatPct(((breakdown.totalCur - breakdown.totalPri) / (breakdown.totalPri || 1)) * 100)} vs {breakdown.totalPri.toLocaleString()}
               </div>
             </div>
-          )}
-        </div>
+            {downloadCSV && (
+              <button
+                onClick={() => {
+                  const header = ['Offense', `${breakdown.year}`, `${breakdown.priorYear}`, 'YTD change (incidents)', 'YTD change (%)'];
+                  const data = breakdown.rows.map(r => [r.label, r.cur, r.prior, r.diff, typeof r.pct === 'number' ? r.pct.toFixed(2) : '']);
+                  downloadCSV(`transit_crime_${breakdown.year}_vs_${breakdown.priorYear}.csv`, [header, ...data]);
+                }}
+                title="Download this table as CSV"
+                className="text-[10px] font-bold text-gray-400 hover:text-black flex items-center gap-1 transition-colors self-center"
+              >
+                <Download size={11} /> CSV
+              </button>
+            )}
+          </div>
+        )}
 
         {breakdownLoading && <div className="text-[13px] text-gray-400 italic py-4">Fetching per-offense breakdown from NYC Open Data…</div>}
         {breakdownErr && <div className="text-[13px] text-gray-400 italic py-4">Per-offense breakdown unavailable — NYC Open Data could not be reached.</div>}
