@@ -32,7 +32,9 @@ const fetchShootings = () => {
       time: r.occur_time || '',
       boro: r.boro || '',
       precinct: r.precinct || '',
-      where: [r.location_desc, r.loc_classfctn_desc, r.loc_of_occur_desc].filter(Boolean).join(' · '),
+      locationDesc: r.location_desc || '',
+      locClass: r.loc_classfctn_desc || '',
+      locOccur: r.loc_of_occur_desc || '',
     })).filter(s => isFinite(s.lng) && isFinite(s.lat)))
     .catch(() => { _shootingsPromise = null; return []; });
   return _shootingsPromise;
@@ -49,8 +51,45 @@ const fmtTime = (t) => {
 const fmtDate = (d) => {
   if (!d) return '';
   const [y, mo, day] = d.split('-').map(Number);
-  return new Date(Date.UTC(y, mo - 1, day)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return new Date(Date.UTC(y, mo - 1, day)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 };
+// Map NYPD's terse location codes to readable phrases. (The YTD feed has no victim details,
+// so the popup describes the setting instead.)
+const LOC_DESC_FRIENDLY = {
+  'MULTI DWELL - PUBLIC HOUS': 'a public-housing building',
+  'MULTI DWELL - APT BUILD': 'an apartment building',
+  'PVT HOUSE': 'a private house',
+  'BAR/NIGHT CLUB': 'a bar or club',
+  'GROCERY/BODEGA': 'a bodega',
+  'RESTAURANT/DINER': 'a restaurant',
+  'FAST FOOD': 'a fast-food spot',
+  'GAS STATION': 'a gas station',
+  'BEAUTY/NAIL SALON': 'a salon',
+  'DRY CLEANER/LAUNDRY': 'a laundromat',
+  'SUPERMARKET': 'a supermarket',
+  'LIQUOR STORE': 'a liquor store',
+  'SMALL MERCHANT': 'a store',
+  'DEPT STORE': 'a store',
+  'COMMERCIAL BLDG': 'a commercial building',
+  'HOSPITAL': 'a hospital',
+  'HOTEL/MOTEL': 'a hotel',
+  'SOCIAL CLUB/POLICY': 'a social club',
+  'CHAIN STORE': 'a store',
+};
+const describeShooting = (s) => {
+  const loc = (s.locationDesc || '').trim().toUpperCase();
+  if (LOC_DESC_FRIENDLY[loc]) return `Shooting at ${LOC_DESC_FRIENDLY[loc]}`;
+  const cls = (s.locClass || '').trim().toUpperCase();
+  if (cls === 'STREET') return 'Shooting on the street';
+  if (cls === 'HOUSING') return 'Shooting in public housing';
+  if (cls === 'DWELLING' || cls === 'RESIDENTIAL') return 'Shooting at a residence';
+  if (cls === 'COMMERCIAL') return 'Shooting at a business';
+  if (cls === 'TRANSIT') return 'Shooting in the transit system';
+  if (cls === 'PLAYGROUND') return 'Shooting at a playground';
+  if (loc && loc !== 'NONE') return `Shooting at ${loc.toLowerCase()}`;
+  return 'Shooting';
+};
+const titleCaseBoro = (b) => (b || '').charAt(0) + (b || '').slice(1).toLowerCase();
 
 // Auto-generated top-line findings for a council district, from its precincts' YTD data
 // weighted by each precinct's share of the district's area.
@@ -139,8 +178,10 @@ const tallyGeo = (geoRecord, names) => {
 };
 
 const DistrictMap = ({ district, onSelectPrecinct, shootings, showShootings, setShowShootings, shootingsLoaded, width = 560, height = 520 }) => {
-  const [hovered, setHovered] = useState(null); // hovered shooting {x,y,data}
+  const [hoverKey, setHoverKey] = useState(null); // dot enlarged on hover
+  const [active, setActive] = useState(null);     // clicked dot → pinned popover
   const svgRef = useRef(null);
+  useEffect(() => { setActive(null); setHoverKey(null); }, [district, showShootings]);
 
   const { pathFn, projection, districtFeature, shareByPrecinct, colorByPrecinct } = useMemo(() => {
     const districtFeature = { type: 'Feature', properties: {}, geometry: district.geometry };
@@ -164,6 +205,7 @@ const DistrictMap = ({ district, onSelectPrecinct, shootings, showShootings, set
       .filter(Boolean);
   }, [shootings, districtFeature, projection]);
 
+
   return (
     <div className="relative h-full min-h-[440px]">
       {/* Shootings toggle */}
@@ -174,7 +216,7 @@ const DistrictMap = ({ district, onSelectPrecinct, shootings, showShootings, set
         className={`absolute top-2 left-2 z-10 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded border shadow-sm transition-colors ${!shootingsLoaded ? 'bg-white/90 text-gray-300 border-gray-200 cursor-wait' : showShootings ? 'bg-gray-900 text-white border-gray-900' : 'bg-white/95 text-gray-700 border-gray-300 hover:border-gray-500'}`}
       >
         <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: '#c0143c' }} />
-        {showShootings ? 'Hide' : 'Show'} shootings{shootingsLoaded ? ` (${districtShootings.length})` : ' …'}
+        {showShootings ? 'Hide' : 'Show'} shootings YTD{shootingsLoaded ? ` (${districtShootings.length})` : ' …'}
       </button>
       <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet" className="w-full h-full bg-gray-50 rounded-sm border border-gray-200">
         {/* Context: every precinct, gray */}
@@ -211,35 +253,36 @@ const DistrictMap = ({ district, onSelectPrecinct, shootings, showShootings, set
             </g>
           );
         })}
-        {/* Shooting incidents */}
+        {/* Shooting incidents — click a dot to pin its details */}
         {showShootings && districtShootings.map(s => (
           <circle
             key={s.key}
-            cx={s.x} cy={s.y} r={hovered?.key === s.key ? 6 : 4.5}
-            fill="#c0143c" fillOpacity={0.85} stroke="#fff" strokeWidth={1.25}
+            cx={s.x} cy={s.y} r={active?.key === s.key ? 7 : hoverKey === s.key ? 6 : 4.5}
+            fill="#c0143c" fillOpacity={active?.key === s.key ? 1 : 0.85} stroke="#fff" strokeWidth={1.25}
             style={{ cursor: 'pointer' }}
-            onMouseEnter={() => setHovered(s)}
-            onMouseLeave={() => setHovered(null)}
+            onMouseEnter={() => setHoverKey(s.key)}
+            onMouseLeave={() => setHoverKey(null)}
+            onClick={() => setActive(a => (a?.key === s.key ? null : s))}
           />
         ))}
       </svg>
 
-      {/* Hover popup for a shooting */}
-      {showShootings && hovered && (() => {
-        const leftPct = (hovered.x / width) * 100;
-        const topPct = (hovered.y / height) * 100;
+      {/* Pinned popover for the clicked shooting */}
+      {showShootings && active && (() => {
+        const leftPct = (active.x / width) * 100;
+        const topPct = (active.y / height) * 100;
         return (
           <div
-            className="absolute pointer-events-none bg-white border border-gray-200 shadow-xl rounded p-2.5 z-50 text-[11px] w-52"
-            style={{ left: `${Math.min(leftPct, 62)}%`, top: `calc(${topPct}% + 10px)` }}
+            className="absolute bg-white border border-gray-200 shadow-xl rounded p-3 z-50 text-[11px] w-56"
+            style={{ left: `${Math.min(leftPct, 55)}%`, top: `calc(${topPct}% + 12px)` }}
           >
-            <div className="font-black text-black text-[12px] flex items-center gap-1.5">
-              <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: '#c0143c' }} />
-              Shooting incident
+            <button onClick={() => setActive(null)} aria-label="Close" className="absolute top-1 right-2 text-gray-400 hover:text-black text-[15px] leading-none">×</button>
+            <div className="font-black text-black text-[13px] pr-4 leading-tight">{describeShooting(active)}</div>
+            <div className="text-gray-600 mt-1">{fmtTime(active.time)}{active.time && active.date ? ' · ' : ''}{fmtDate(active.date)}</div>
+            <div className="text-gray-500">{toOrdinalPrecinct(active.precinct)} · {titleCaseBoro(active.boro)}</div>
+            <div className="text-gray-400 text-[10px] mt-1.5 pt-1.5 border-t border-gray-100">
+              Source: <a href="https://data.cityofnewyork.us/Public-Safety/NYPD-Shooting-Incident-Data-Year-To-Date-/5ucz-vwe8" target="_blank" rel="noopener noreferrer" className="underline hover:text-black">NYPD Open Data</a>
             </div>
-            <div className="text-gray-600 mt-1">{fmtDate(hovered.date)}{hovered.time ? ` · ${fmtTime(hovered.time)}` : ''}</div>
-            <div className="text-gray-500">{toOrdinalPrecinct(hovered.precinct)} · {hovered.boro.charAt(0) + hovered.boro.slice(1).toLowerCase()}</div>
-            {hovered.where && <div className="text-gray-400 mt-1 capitalize">{hovered.where.toLowerCase()}</div>}
           </div>
         );
       })()}
@@ -436,7 +479,7 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
 
         <div>
           <div className="flex items-baseline justify-between gap-3 mb-3">
-            <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-500">Major felonies by precinct · Year-on-year change (YTD)</h4>
+            <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-500 leading-tight">Major felonies by precinct<br /><span className="text-gray-400">Year-on-year change (YTD)</span></h4>
             <button
               onClick={() => {
                 const header = ['Precinct', 'Neighborhoods', 'Share of district area',
@@ -517,12 +560,6 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
         </div>
       </div>
 
-      {showShootings && (
-        <p className="mt-4 text-[11px] font-serif italic text-gray-500 leading-snug max-w-3xl">
-          <span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1" style={{ background: '#c0143c' }} />
-          Each dot is a shooting incident inside the district so far this year (through the latest available date), from <a href="https://data.cityofnewyork.us/Public-Safety/NYPD-Shooting-Incident-Data-Year-To-Date-/5ucz-vwe8" target="_blank" rel="noopener noreferrer" className="underline hover:text-black">NYPD Shooting Incident Data (NYC Open Data)</a>. Hover a dot for the date, time and location. This YTD file is refreshed quarterly, so it may lag the CompStat figures above.
-        </p>
-      )}
     </div>
   );
 }
