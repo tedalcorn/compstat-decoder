@@ -1,11 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('renders the dashboard header and main tabs', () => {
+test('renders the dashboard brand and main tabs', () => {
   render(<App />);
-  expect(screen.getByText(/NYPD CompStat Ledger/i)).toBeInTheDocument();
+  expect(screen.getByText(/NYC Crime Breakdown/i)).toBeInTheDocument();
   expect(screen.getByText(/^Headlines$/i)).toBeInTheDocument();
-  expect(screen.getByText(/Crime Numbers/i)).toBeInTheDocument();
-  expect(screen.getByText(/By Precinct/i)).toBeInTheDocument();
-  expect(screen.getByText(/Council Districts/i)).toBeInTheDocument();
+  expect(screen.getByText(/^Crime Numbers$/i)).toBeInTheDocument();
+  expect(screen.getByText(/^By Precinct$/i)).toBeInTheDocument();
+  expect(screen.getByText(/^By Council District$/i)).toBeInTheDocument();
 });
