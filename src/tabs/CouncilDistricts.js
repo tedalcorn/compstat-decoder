@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { geoPath, geoMercator } from 'd3-geo';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { geoPath, geoMercator, geoContains } from 'd3-geo';
 import precinctGeoJSON from '../data/nyc_precincts.json';
 import councilData from '../data/council_districts.json';
 import {
@@ -9,6 +9,48 @@ import {
 } from '../shared';
 
 const MAJORS = ['Murder', 'Rape', 'Robbery', 'Fel. Assault', 'Burglary', 'Gr. Larceny', 'G.L.A.'];
+
+/* ------------------------------------------------------------------ */
+/* SHOOTINGS — NYPD Shooting Incident Data (Year To Date), NYC Open    */
+/* Data 5ucz-vwe8. Street-level lat/lng per incident. NOTE: this       */
+/* dataset's latitude/longitude FIELD NAMES ARE SWAPPED, so we read    */
+/* `latitude` as lng and `longitude` as lat. Fetched once, cached.     */
+/* ------------------------------------------------------------------ */
+const SHOOTINGS_URL = "https://data.cityofnewyork.us/resource/5ucz-vwe8.json?" +
+  "$select=incident_key,occur_date,occur_time,boro,precinct,loc_of_occur_desc,loc_classfctn_desc,location_desc,latitude,longitude" +
+  "&$where=occur_date>='2026-01-01' AND latitude IS NOT NULL&$order=occur_date&$limit=5000";
+let _shootingsPromise = null;
+const fetchShootings = () => {
+  if (_shootingsPromise) return _shootingsPromise;
+  _shootingsPromise = fetch(SHOOTINGS_URL)
+    .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
+    .then(rows => rows.map(r => ({
+      key: r.incident_key,
+      lng: parseFloat(r.latitude),  // field names are swapped in this dataset
+      lat: parseFloat(r.longitude),
+      date: r.occur_date ? r.occur_date.slice(0, 10) : '',
+      time: r.occur_time || '',
+      boro: r.boro || '',
+      precinct: r.precinct || '',
+      where: [r.location_desc, r.loc_classfctn_desc, r.loc_of_occur_desc].filter(Boolean).join(' · '),
+    })).filter(s => isFinite(s.lng) && isFinite(s.lat)))
+    .catch(() => { _shootingsPromise = null; return []; });
+  return _shootingsPromise;
+};
+
+// Format "09:30:00" → "9:30 AM"
+const fmtTime = (t) => {
+  if (!t) return '';
+  const [h, m] = t.split(':');
+  let hr = parseInt(h, 10); const ap = hr >= 12 ? 'PM' : 'AM';
+  hr = hr % 12 || 12;
+  return `${hr}:${m} ${ap}`;
+};
+const fmtDate = (d) => {
+  if (!d) return '';
+  const [y, mo, day] = d.split('-').map(Number);
+  return new Date(Date.UTC(y, mo - 1, day)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+};
 
 // Auto-generated top-line findings for a council district, from its precincts' YTD data
 // weighted by each precinct's share of the district's area.
@@ -96,8 +138,11 @@ const tallyGeo = (geoRecord, names) => {
   return { cur, pri, pct: pri > 0 ? ((cur - pri) / pri) * 100 : null, diff: cur - pri };
 };
 
-const DistrictMap = ({ district, onSelectPrecinct, width = 560, height = 520 }) => {
-  const { pathFn, districtFeature, shareByPrecinct, colorByPrecinct } = useMemo(() => {
+const DistrictMap = ({ district, onSelectPrecinct, shootings, showShootings, setShowShootings, shootingsLoaded, width = 560, height = 520 }) => {
+  const [hovered, setHovered] = useState(null); // hovered shooting {x,y,data}
+  const svgRef = useRef(null);
+
+  const { pathFn, projection, districtFeature, shareByPrecinct, colorByPrecinct } = useMemo(() => {
     const districtFeature = { type: 'Feature', properties: {}, geometry: district.geometry };
     const projection = geoMercator().fitExtent([[36, 36], [width - 36, height - 36]], districtFeature);
     const pathFn = geoPath().projection(projection);
@@ -107,12 +152,31 @@ const DistrictMap = ({ district, onSelectPrecinct, width = 560, height = 520 }) 
       shareByPrecinct[o.precinct] = o.share;
       colorByPrecinct[o.precinct] = PRECINCT_COLORS[i % PRECINCT_COLORS.length];
     });
-    return { pathFn, districtFeature, shareByPrecinct, colorByPrecinct };
+    return { pathFn, projection, districtFeature, shareByPrecinct, colorByPrecinct };
   }, [district, width, height]);
+
+  // Shootings inside this district's boundary, projected to the map's coordinate space.
+  const districtShootings = useMemo(() => {
+    if (!shootings || !shootings.length) return [];
+    return shootings
+      .filter(s => geoContains(districtFeature, [s.lng, s.lat]))
+      .map(s => { const p = projection([s.lng, s.lat]); return p ? { ...s, x: p[0], y: p[1] } : null; })
+      .filter(Boolean);
+  }, [shootings, districtFeature, projection]);
 
   return (
     <div className="relative h-full min-h-[440px]">
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet" className="w-full h-full bg-gray-50 rounded-sm border border-gray-200">
+      {/* Shootings toggle */}
+      <button
+        onClick={() => setShowShootings(v => !v)}
+        disabled={!shootingsLoaded}
+        title="Plot this year's shooting incidents inside the district"
+        className={`absolute top-2 left-2 z-10 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded border shadow-sm transition-colors ${!shootingsLoaded ? 'bg-white/90 text-gray-300 border-gray-200 cursor-wait' : showShootings ? 'bg-gray-900 text-white border-gray-900' : 'bg-white/95 text-gray-700 border-gray-300 hover:border-gray-500'}`}
+      >
+        <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: '#c0143c' }} />
+        {showShootings ? 'Hide' : 'Show'} shootings{shootingsLoaded ? ` (${districtShootings.length})` : ' …'}
+      </button>
+      <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet" className="w-full h-full bg-gray-50 rounded-sm border border-gray-200">
         {/* Context: every precinct, gray */}
         {precinctGeoJSON.features.map(f => {
           const pNum = parseInt(f.properties.precinct, 10);
@@ -147,7 +211,38 @@ const DistrictMap = ({ district, onSelectPrecinct, width = 560, height = 520 }) 
             </g>
           );
         })}
+        {/* Shooting incidents */}
+        {showShootings && districtShootings.map(s => (
+          <circle
+            key={s.key}
+            cx={s.x} cy={s.y} r={hovered?.key === s.key ? 6 : 4.5}
+            fill="#c0143c" fillOpacity={0.85} stroke="#fff" strokeWidth={1.25}
+            style={{ cursor: 'pointer' }}
+            onMouseEnter={() => setHovered(s)}
+            onMouseLeave={() => setHovered(null)}
+          />
+        ))}
       </svg>
+
+      {/* Hover popup for a shooting */}
+      {showShootings && hovered && (() => {
+        const leftPct = (hovered.x / width) * 100;
+        const topPct = (hovered.y / height) * 100;
+        return (
+          <div
+            className="absolute pointer-events-none bg-white border border-gray-200 shadow-xl rounded p-2.5 z-50 text-[11px] w-52"
+            style={{ left: `${Math.min(leftPct, 62)}%`, top: `calc(${topPct}% + 10px)` }}
+          >
+            <div className="font-black text-black text-[12px] flex items-center gap-1.5">
+              <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: '#c0143c' }} />
+              Shooting incident
+            </div>
+            <div className="text-gray-600 mt-1">{fmtDate(hovered.date)}{hovered.time ? ` · ${fmtTime(hovered.time)}` : ''}</div>
+            <div className="text-gray-500">{toOrdinalPrecinct(hovered.precinct)} · {hovered.boro.charAt(0) + hovered.boro.slice(1).toLowerCase()}</div>
+            {hovered.where && <div className="text-gray-400 mt-1 capitalize">{hovered.where.toLowerCase()}</div>}
+          </div>
+        );
+      })()}
     </div>
   );
 };
@@ -216,6 +311,15 @@ const DistrictTitleSelector = ({ districts, district, setDistrictNum }) => {
 export default function CouncilDistricts({ rawData, activeTab, districtNum, setDistrictNum, onSelectPrecinct, downloadCSV }) {
   const districts = councilData.districts;
   const district = districts.find(d => d.district === districtNum) || districts[0];
+
+  // YTD shooting incidents (fetched once, cached across district switches).
+  const [shootings, setShootings] = useState(null);
+  const [showShootings, setShowShootings] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    fetchShootings().then(d => { if (alive) setShootings(d); });
+    return () => { alive = false; };
+  }, []);
 
   const period = rawData?.citywide?.report_period || {};
   const endYear = period?.week_end ? new Date(period.week_end).getFullYear() : new Date().getFullYear();
@@ -321,7 +425,14 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_1fr] gap-8 items-stretch">
-        <DistrictMap district={district} onSelectPrecinct={onSelectPrecinct} />
+        <DistrictMap
+          district={district}
+          onSelectPrecinct={onSelectPrecinct}
+          shootings={shootings}
+          showShootings={showShootings}
+          setShowShootings={setShowShootings}
+          shootingsLoaded={shootings != null}
+        />
 
         <div>
           <div className="flex items-baseline justify-between gap-3 mb-3">
@@ -405,6 +516,13 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
           )}
         </div>
       </div>
+
+      {showShootings && (
+        <p className="mt-4 text-[11px] font-serif italic text-gray-500 leading-snug max-w-3xl">
+          <span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1" style={{ background: '#c0143c' }} />
+          Each dot is a shooting incident inside the district so far this year (through the latest available date), from <a href="https://data.cityofnewyork.us/Public-Safety/NYPD-Shooting-Incident-Data-Year-To-Date-/5ucz-vwe8" target="_blank" rel="noopener noreferrer" className="underline hover:text-black">NYPD Shooting Incident Data (NYC Open Data)</a>. Hover a dot for the date, time and location. This YTD file is refreshed quarterly, so it may lag the CompStat figures above.
+        </p>
+      )}
     </div>
   );
 }

@@ -43,7 +43,7 @@ export default function About({ parsedData, fetchError }) {
         <p className="mb-2">
           Updated {(parsedData.period?.week_end || '—').replace(/\/20(\d\d)$/, '/$1')} (CompStat week ending). Page rendered {new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}.{fetchError && ' Live fetch unavailable — showing embedded data.'}
         </p>
-        <p><a href="https://github.com/tedalcorn/compstat-ledger" className="underline hover:text-black" target="_blank" rel="noopener noreferrer">View source on GitHub →</a></p>
+        <p><a href="https://github.com/tedalcorn/compstat-decoder" className="underline hover:text-black" target="_blank" rel="noopener noreferrer">View source on GitHub →</a></p>
       </div>
     </div>
   );
