@@ -192,15 +192,15 @@ const PrecinctRankingBars = ({ precinctRates, onSelect, mapMode = 'rate', hovere
   const botMax = mapMode === 'change' ? Math.abs(bottom5[0]?.pctChange || 1) : (top5[0]?.rate || 1);
 
   return (
-    <div className="flex flex-col justify-between h-full">
+    <div>
       <div>
-        <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-1" style={{ color: VC.magenta }}>
+        <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 flex items-center gap-1" style={{ color: VC.magenta }}>
           <TrendingUp size={12} /> {mapMode === 'change' ? 'Biggest % increases' : 'Highest rate (per 100k)'}
         </div>
         {top5.map(item => renderBar(item, VC.magenta, 200, topMax))}
       </div>
-      <div className="mt-6 pt-4 border-t border-gray-100">
-        <div className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-1" style={{ color: VC.green }}>
+      <div className="mt-4 pt-3 border-t border-gray-100">
+        <div className="text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-1" style={{ color: VC.green }}>
           <TrendingDown size={12} /> {mapMode === 'change' ? 'Biggest % decreases' : 'Lowest rate (per 100k)'}
         </div>
         {bottom5.map(item => renderBar(item, VC.green, 200, botMax))}
@@ -212,8 +212,8 @@ const PrecinctRankingBars = ({ precinctRates, onSelect, mapMode = 'rate', hovere
 /* ------------------------------------------------------------------ */
 /* BY PRECINCT TAB                                                     */
 /* ------------------------------------------------------------------ */
-const CRIME_PILLS = [
-  ['all', 'All Major'], ['violent', 'Violent'], ['property', 'Property'],
+const CATEGORY_PILLS = [['all', 'All Major'], ['violent', 'Violent'], ['property', 'Property']];
+const OFFENSE_PILLS = [
   ['Murder', 'Murder'], ['Rape', 'Rape'], ['Robbery', 'Robbery'], ['Fel. Assault', 'Fel. Assault'],
   ['Burglary', 'Burglary'], ['Gr. Larceny', 'Gr. Larceny'], ['G.L.A.', 'G.L.A.'],
   ['Petit Larceny', 'Petit Larceny'], ['Misd. Assault', 'Misd. Assault'],
@@ -224,41 +224,36 @@ export default function ByPrecinct({ precinctRates, mapMode, setMapMode, mapCrim
 
   return (
     <div>
-      <div className="mb-5">
-        <h2 className="text-2xl font-black font-serif mb-1">By Precinct</h2>
-        {/* Fixed-height description so switching modes never shifts the controls below */}
-        <p className="text-sm text-gray-500 font-serif min-h-[20px]">
-          {mapMode === 'change' ? 'Year-over-year percent change by precinct.' : 'Crime rates per 100k residents by precinct.'} Click any precinct to see its full numbers.
-        </p>
-      </div>
-
-      {/* Controls — two stable rows so nothing shifts when a selection changes */}
-      <div className="flex flex-col gap-2.5 mb-6">
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 w-16 flex-shrink-0">Measure</span>
+      {/* Controls — stable rows so nothing shifts when a selection changes */}
+      <div className="flex flex-col gap-2 mb-5">
+        <div className="flex items-center gap-4 flex-wrap">
+          <h2 className="text-2xl font-black font-serif">By Precinct</h2>
           <div className="flex gap-1 bg-gray-100 p-1 rounded border border-gray-200">
             {[['rate', 'Rate per 100k'], ['change', '% Change']].map(([val, label]) => (
               <button key={val} onClick={() => setMapMode(val)} className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-sm transition-colors ${mapMode === val ? 'bg-white shadow-sm text-black' : 'text-gray-500 hover:text-black'}`}>{label}</button>
             ))}
           </div>
         </div>
-        <div className="flex items-start gap-3 flex-wrap">
-          <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 w-16 flex-shrink-0 pt-2.5">Crime</span>
-          <div className="flex gap-1 bg-gray-100 p-1 rounded border border-gray-200 flex-wrap">
-            {CRIME_PILLS.map(([val, label]) => (
-              <button key={val} onClick={() => setMapCrime(val)} className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-sm transition-colors ${mapCrime === val ? 'bg-white shadow-sm text-black' : 'text-gray-500 hover:text-black'}`}>{label}</button>
+        {/* Crime selector: big categories on top, individual offenses below in lighter type */}
+        <div className="flex flex-col gap-1">
+          <div className="flex gap-1 flex-wrap">
+            {CATEGORY_PILLS.map(([val, label]) => (
+              <button key={val} onClick={() => setMapCrime(val)} className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-sm border transition-colors ${mapCrime === val ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-100 text-gray-600 border-gray-200 hover:text-black'}`}>{label}</button>
+            ))}
+          </div>
+          <div className="flex gap-1 flex-wrap">
+            {OFFENSE_PILLS.map(([val, label]) => (
+              <button key={val} onClick={() => setMapCrime(val)} className={`px-2.5 py-1 text-[10px] font-medium normal-case rounded-sm border transition-colors ${mapCrime === val ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:text-black hover:border-gray-400'}`}>{label}</button>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        <div className="lg:col-span-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        <div className="max-w-[480px]">
           <PrecinctMap precinctRates={precinctRates} onSelect={onSelectPrecinct} mapMode={mapMode} externalHovered={hoveredPrecinctNum} onHover={setHoveredPrecinctNum} />
         </div>
-        <div className="lg:col-span-2">
-          <PrecinctRankingBars precinctRates={precinctRates} onSelect={onSelectPrecinct} mapMode={mapMode} hoveredPrecinctNum={hoveredPrecinctNum} onHover={setHoveredPrecinctNum} />
-        </div>
+        <PrecinctRankingBars precinctRates={precinctRates} onSelect={onSelectPrecinct} mapMode={mapMode} hoveredPrecinctNum={hoveredPrecinctNum} onHover={setHoveredPrecinctNum} />
       </div>
     </div>
   );

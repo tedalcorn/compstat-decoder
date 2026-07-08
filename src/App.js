@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   FALLBACK_DATA, GITHUB_USER, REPO_NAME, CITYWIDE_POPULATION, VOLATILITY_THRESHOLD,
   GEO_POPULATIONS, PRECINCT_NEIGHBORHOODS, TOURIST_PRECINCTS, VIOLENT_CRIMES, PROPERTY_CRIMES,
-  safeNum, calcPct, formatGeoName, toOrdinalPrecinct,
-  RefreshCw, Info, SearchIcon, Navigation, Link2, Activity,
+  safeNum, calcPct, formatGeoName, precinctPatrolBorough, PATROL_BOROUGH_NAMES,
+  SearchIcon, Link2, Activity,
   RTCI_CSV_URL, parseRTCIcsv, RTCI_FALLBACK, RTCI_FALLBACK_PERIOD, RTCI_FALLBACK_UPDATED,
 } from './shared';
 import HistoricView from './HistoricView';
@@ -16,9 +16,9 @@ import CouncilDistricts from './tabs/CouncilDistricts';
 const MAIN_TABS = [
   ['headlines', 'Headlines'],
   ['numbers', 'Crime Numbers'],
-  ['precincts', 'By Precinct'],
   ['transit', 'Transit'],
-  ['council', 'Council Districts'],
+  ['precincts', 'By Precinct'],
+  ['council', 'By Council District'],
 ];
 const TAB_KEYS = MAIN_TABS.map(t => t[0]);
 
@@ -38,12 +38,8 @@ export default function App() {
     return d >= 1 && d <= 51 ? d : 15;
   });
   const [rawData, setRawData] = useState(FALLBACK_DATA);
-  const [loading, setLoading] = useState(false);
-  const [isLocating, setIsLocating] = useState(false);
-  const [locateMsg, setLocateMsg] = useState("");
   const [geoFocused, setGeoFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showHelp, setShowHelp] = useState(false);
   const [fetchError, setFetchError] = useState(false);
   const [rtciData, setRtciData] = useState(null);
 
@@ -52,7 +48,6 @@ export default function App() {
   const [mapMode, setMapMode] = useState(['rate', 'change'].includes(initialParams.get('mapMode')) ? initialParams.get('mapMode') : 'rate');
 
   const loadReport = useCallback(async () => {
-    setLoading(true);
     setFetchError(false);
     const RAW_URL = `https://raw.githubusercontent.com/${GITHUB_USER}/${REPO_NAME}/main/data/latest_compstat.json`;
     try {
@@ -61,7 +56,7 @@ export default function App() {
       if (json && json.citywide) { setRawData(json); return; }
     } catch (e1) {
       setFetchError(true);
-    } finally { setLoading(false); }
+    }
   }, []);
 
   useEffect(() => { loadReport(); }, [loadReport]);
@@ -127,23 +122,6 @@ export default function App() {
         setRtciData({ cities: fallbackMap, period: RTCI_FALLBACK_PERIOD, updated: RTCI_FALLBACK_UPDATED });
       });
   }, []);
-
-  const handleLocateUser = () => {
-    if (!navigator.geolocation) { setLocateMsg("Location not supported"); return; }
-    setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(async (position) => {
-      try {
-        const { latitude, longitude } = position.coords;
-        const res = await fetch(`https://data.cityofnewyork.us/resource/78dh-3ptz.json?$where=intersects(the_geom, 'POINT(${longitude} ${latitude})')`);
-        const data = await res.json();
-        if (data && data.length > 0) {
-          const pName = toOrdinalPrecinct(data[0].precinct);
-          if (rawData[pName]) selectGeo(pName);
-        }
-      } catch (err) {}
-      finally { setIsLocating(false); }
-    });
-  };
 
   // Selecting a geography routes to a tab that can actually show it.
   const selectGeo = (geo) => {
@@ -266,14 +244,18 @@ export default function App() {
         try { return new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
         catch { return s; }
       };
-      const start = parsedData.period.week_start ? fmt(parsedData.period.week_start) : null;
       const end = fmt(parsedData.period.week_end);
-      document.title = start ? `CompStat in Context · Week of ${start}–${end}` : `CompStat in Context · Through ${end}`;
+      document.title = `NYC Crime Breakdown · Updated ${end}`;
     }
   }, [parsedData.period?.week_end, parsedData.period?.week_start]);
 
   const hotspots = useMemo(() => {
-    const keys = Object.keys(rawData).filter(k => k !== 'citywide' && k.includes('Precinct'));
+    // Scope the pattern-detection pool: citywide looks across all precincts; a borough
+    // looks only at its own precincts. (Precinct views use their own vs-citywide rules.)
+    const isBorough = PATROL_BOROUGH_NAMES.includes(activeGeo);
+    const keys = Object.keys(rawData).filter(k => k !== 'citywide' && k.includes('Precinct'))
+      .filter(k => !isBorough || precinctPatrolBorough(k) === activeGeo);
+    const topCount = isBorough ? 3 : 5;
     let volumes = [], allPrecinctCrimes = [];
     keys.forEach(pct => {
       const data = rawData[pct]; let vSum = 0;
@@ -287,15 +269,15 @@ export default function App() {
     });
     const sortedV = [...volumes].filter(v => v.violent > 0).sort((a,b) => b.violent - a.violent);
     let inequality = null;
-    if (sortedV.length > 10) {
-      const top5 = sortedV.slice(0, 5); const top5Sum = top5.reduce((s, p) => s + p.violent, 0); const top5Pop = top5.reduce((s, p) => s + (GEO_POPULATIONS[p.precinct] || 0), 0);
+    if (sortedV.length > topCount * 2) {
+      const top = sortedV.slice(0, topCount); const topSum = top.reduce((s, p) => s + p.violent, 0); const topPop = top.reduce((s, p) => s + (GEO_POPULATIONS[p.precinct] || 0), 0);
       let bottomSum = 0, bottomCount = 0, bottomPop = 0;
-      for (let i = sortedV.length - 1; i >= 0 && bottomSum < top5Sum; i--) { bottomSum += sortedV[i].violent; bottomCount++; bottomPop += (GEO_POPULATIONS[sortedV[i].precinct] || 0); }
-      inequality = { topCount: 5, topSum: top5Sum, topPop: top5Pop, bottomCount, bottomPop };
+      for (let i = sortedV.length - 1; i >= 0 && bottomSum < topSum; i--) { bottomSum += sortedV[i].violent; bottomCount++; bottomPop += (GEO_POPULATIONS[sortedV[i].precinct] || 0); }
+      if (bottomCount > topCount) inequality = { topCount, topSum, topPop, bottomCount, bottomPop };
     }
     allPrecinctCrimes.sort((a, b) => b.pct - a.pct);
     return { inequality, topPctSpike: allPrecinctCrimes[0], topPctDrop: allPrecinctCrimes[allPrecinctCrimes.length - 1] };
-  }, [rawData, activeTab]);
+  }, [rawData, activeTab, activeGeo]);
 
   const isTouristPrecinct = TOURIST_PRECINCTS.includes(activeGeo);
   const activePop = GEO_POPULATIONS[activeGeo] || (activeGeo === 'citywide' ? CITYWIDE_POPULATION : null);
@@ -341,111 +323,87 @@ export default function App() {
     <div className="min-h-screen pb-12 font-sans bg-white text-black text-[15px]">
       <div className="max-w-[1100px] mx-auto px-5 sm:px-8">
 
-        <header className="pt-6 pb-3 border-b border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative">
-          <div className="flex items-center gap-3">
-            <span className="text-[11px] font-black uppercase tracking-widest text-black">NYPD CompStat Ledger</span>
-            <span className="text-gray-300">•</span>
-            <span className="text-[12px] font-medium text-gray-500 tabular-nums">{parsedData.period?.week_start || 'N/A'} – {parsedData.period?.week_end || 'N/A'}</span>
-            <button onClick={loadReport} title="Refresh data from NYPD" aria-label="Refresh data" className="ml-2 text-gray-400 hover:text-black transition-colors"><RefreshCw size={14} className={loading ? "animate-spin" : ""} /></button>
-            {fetchError && <span className="text-[10px] font-medium text-gray-400 uppercase tracking-widest">Using embedded data</span>}
-            <div className="relative ml-1">
-              <button onClick={() => setShowHelp(!showHelp)} title="How to use this tool" aria-label="How to use this tool" className={`text-gray-400 hover:text-black transition-colors ${showHelp ? 'text-black' : ''}`}><Info size={14} /></button>
-              {showHelp && <div className="absolute top-full left-0 mt-3 w-72 bg-white border border-gray-200 shadow-2xl rounded p-4 z-50">
-                <div className="flex justify-between mb-3"><h4 className="font-black text-black uppercase tracking-widest text-[10px]">How to use this tool</h4><button onClick={() => setShowHelp(false)} className="text-gray-400 hover:text-black font-bold px-2">&times;</button></div>
-                <ul className="space-y-3 text-[13px] text-gray-600 font-serif">
-                  <li>Use the tabs to move between citywide headlines, the full offense table, the precinct map, transit crime and council districts.</li>
-                  <li>Use the search box (or the locate button) to zoom the Headlines and Crime Numbers tabs to a precinct or borough.</li>
-                  <li>Faded rows indicate sample sizes under 30 (high volatility).</li>
-                </ul>
-              </div>}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto relative z-20">
-            <div className="flex flex-1 md:w-72 relative min-w-[200px]">
-              <div className="flex gap-2 w-full">
-                <div className="relative flex-1">
-                  <SearchIcon size={14} className="absolute left-3 top-[11px] pointer-events-none text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder={geoFocused ? "Search neighborhood or precinct..." : ""}
-                    value={geoFocused ? searchQuery : (activeGeo === 'citywide' ? 'Citywide' : formatGeoName(activeGeo))}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    onFocus={e => { setGeoFocused(true); setSearchQuery(''); e.target.value = ''; }}
-                    onBlur={() => setTimeout(() => { setGeoFocused(false); setSearchQuery(''); }, 200)}
-                    className={`w-full text-[11px] font-black uppercase tracking-wider py-2.5 pl-9 pr-4 rounded border bg-white focus:outline-none ${geoFocused ? 'border-indigo-400' : 'border-gray-300'}`}
-                  />
-                  {geoFocused && (
-                    <div className="absolute top-full left-0 w-full mt-1 bg-white border border-gray-200 shadow-xl rounded z-50 max-h-72 overflow-y-auto">
-                      {geoSearchResults.showCitywide && (
-                        <button onMouseDown={() => { selectGeo('citywide'); setGeoFocused(false); setSearchQuery(''); }} className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b border-gray-100 ${activeGeo === 'citywide' ? 'bg-gray-50 font-black' : ''}`}>
-                          <div className="text-[11px] font-bold uppercase tracking-wider text-black">Citywide</div>
+        {/* Single-row navigation: brand, section tabs, geography, period toggle */}
+        <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200 -mx-5 sm:-mx-8 px-5 sm:px-8 mb-8 py-2 flex flex-wrap items-center gap-x-2 gap-y-2">
+          <span className="text-[10px] font-black uppercase tracking-wider text-black flex-shrink-0 mr-1">NYC Crime Breakdown</span>
+          <nav className="flex items-center" aria-label="Sections">
+            {MAIN_TABS.map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setMainTab(key)}
+                aria-pressed={mainTab === key}
+                className={`text-[12.5px] font-bold px-1.5 py-1.5 border-b-2 transition-colors flex-shrink-0 whitespace-nowrap ${mainTab === key ? 'border-black text-black' : 'border-transparent text-gray-400 hover:text-black'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+          <div className="ml-auto flex items-center gap-1.5">
+            <div className="relative w-36">
+              <SearchIcon size={13} className="absolute left-2.5 top-[9px] pointer-events-none text-gray-400" />
+              <input
+                type="text"
+                placeholder={geoFocused ? "Neighborhood or precinct..." : ""}
+                value={geoFocused ? searchQuery : (activeGeo === 'citywide' ? 'Citywide' : formatGeoName(activeGeo))}
+                onChange={e => setSearchQuery(e.target.value)}
+                onFocus={e => { setGeoFocused(true); setSearchQuery(''); e.target.value = ''; }}
+                onBlur={() => setTimeout(() => { setGeoFocused(false); setSearchQuery(''); }, 200)}
+                className={`w-full text-[11px] font-bold py-1.5 pl-8 pr-2 rounded border bg-white focus:outline-none truncate ${geoFocused ? 'border-indigo-400' : 'border-gray-300'}`}
+              />
+              {geoFocused && (
+                <div className="absolute top-full right-0 w-72 mt-1 bg-white border border-gray-200 shadow-xl rounded z-50 max-h-72 overflow-y-auto">
+                  {geoSearchResults.showCitywide && (
+                    <button onMouseDown={() => { selectGeo('citywide'); setGeoFocused(false); setSearchQuery(''); }} className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b border-gray-100 ${activeGeo === 'citywide' ? 'bg-gray-50 font-black' : ''}`}>
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-black">Citywide</div>
+                    </button>
+                  )}
+                  {geoSearchResults.boroughs.length > 0 && (
+                    <>
+                      <div className="px-3 pt-2 pb-1 text-[9px] font-black uppercase tracking-widest text-gray-400">Boroughs</div>
+                      {geoSearchResults.boroughs.map(b => (
+                        <button key={b} onMouseDown={() => { selectGeo(b); setGeoFocused(false); setSearchQuery(''); }} className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${activeGeo === b ? 'bg-gray-50 font-black' : ''}`}>
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-black">{b}</div>
                         </button>
-                      )}
-                      {geoSearchResults.boroughs.length > 0 && (
-                        <>
-                          <div className="px-3 pt-2 pb-1 text-[9px] font-black uppercase tracking-widest text-gray-400">Boroughs</div>
-                          {geoSearchResults.boroughs.map(b => (
-                            <button key={b} onMouseDown={() => { selectGeo(b); setGeoFocused(false); setSearchQuery(''); }} className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${activeGeo === b ? 'bg-gray-50 font-black' : ''}`}>
-                              <div className="text-[11px] font-bold uppercase tracking-wider text-black">{b}</div>
-                            </button>
-                          ))}
-                        </>
-                      )}
-                      {geoSearchResults.precincts.length > 0 && (
-                        <>
-                          <div className="px-3 pt-2 pb-1 text-[9px] font-black uppercase tracking-widest text-gray-400 border-t border-gray-100">Precincts</div>
-                          {geoSearchResults.precincts.map(r => (
-                            <button key={r.pct} onMouseDown={() => { selectGeo(r.pct); setGeoFocused(false); setSearchQuery(''); }} className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${activeGeo === r.pct ? 'bg-gray-50' : ''}`}>
-                              <div className="text-[12px] font-bold text-black">{r.pct}</div>
-                              <div className="text-[10px] text-gray-500">{r.hoods}</div>
-                            </button>
-                          ))}
-                        </>
-                      )}
-                      {!geoSearchResults.showCitywide && geoSearchResults.boroughs.length === 0 && geoSearchResults.precincts.length === 0 && (
-                        <div className="px-3 py-3 text-sm text-gray-500">No matches found.</div>
-                      )}
-                    </div>
+                      ))}
+                    </>
+                  )}
+                  {geoSearchResults.precincts.length > 0 && (
+                    <>
+                      <div className="px-3 pt-2 pb-1 text-[9px] font-black uppercase tracking-widest text-gray-400 border-t border-gray-100">Precincts</div>
+                      {geoSearchResults.precincts.map(r => (
+                        <button key={r.pct} onMouseDown={() => { selectGeo(r.pct); setGeoFocused(false); setSearchQuery(''); }} className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${activeGeo === r.pct ? 'bg-gray-50' : ''}`}>
+                          <div className="text-[12px] font-bold text-black">{r.pct}</div>
+                          <div className="text-[10px] text-gray-500">{r.hoods}</div>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                  {!geoSearchResults.showCitywide && geoSearchResults.boroughs.length === 0 && geoSearchResults.precincts.length === 0 && (
+                    <div className="px-3 py-3 text-sm text-gray-500">No matches found.</div>
                   )}
                 </div>
-                <button onClick={handleLocateUser} disabled={isLocating} title="Use my location to find my NYPD precinct" aria-label="Find my precinct" className="flex items-center justify-center px-3 border border-gray-300 rounded bg-white hover:bg-gray-50 disabled:opacity-50">{isLocating ? <RefreshCw size={14} className="animate-spin" /> : <Navigation size={14} />}</button>
-              </div>
-              {locateMsg && <span className="absolute -bottom-5 left-0 text-[10px] font-bold uppercase tracking-widest text-indigo-600">{locateMsg}</span>}
+              )}
             </div>
-            <div className="flex border border-gray-400 rounded overflow-hidden shrink-0">
-              <button onClick={() => setActiveTab('wtd')} aria-pressed={activeTab === 'wtd'} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest transition-colors ${activeTab === 'wtd' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50 underline-offset-2 underline decoration-dotted decoration-gray-300'}`}>Weekly</button>
-              <button onClick={() => setActiveTab('ytd')} aria-pressed={activeTab === 'ytd'} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest transition-colors ${activeTab === 'ytd' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50 underline-offset-2 underline decoration-dotted decoration-gray-300'}`}>Year to Date</button>
+            <div className="flex border border-gray-300 rounded overflow-hidden shrink-0">
+              <button onClick={() => setActiveTab('wtd')} aria-pressed={activeTab === 'wtd'} title="This CompStat week vs the same week last year" className={`px-2 py-1.5 text-[10px] font-black uppercase tracking-wide transition-colors ${activeTab === 'wtd' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:text-black'}`}>Wk</button>
+              <button onClick={() => setActiveTab('ytd')} aria-pressed={activeTab === 'ytd'} title="Year-to-date vs the same period last year" className={`px-2 py-1.5 text-[10px] font-black uppercase tracking-wide transition-colors ${activeTab === 'ytd' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:text-black'}`}>YTD</button>
             </div>
+            <button onClick={handleCopyLink} title="Copy a shareable link to this exact view" aria-label="Copy a shareable link to this exact view" className="text-gray-400 hover:text-black transition-colors flex items-center gap-1 px-0.5 py-1 flex-shrink-0">
+              <Link2 size={14} />
+              {copyLinkLabel !== 'Copy link' && <span className="text-[10px] font-black uppercase tracking-widest">{copyLinkLabel}</span>}
+            </button>
+            <button onClick={() => setAppView('historic')} title="The 30-year transformation of NYC crime" className="text-[11px] font-bold text-gray-400 hover:text-black transition-colors flex items-center gap-1 flex-shrink-0 whitespace-nowrap">
+              <Activity size={12} /> 30-Yr
+            </button>
           </div>
-        </header>
-
-        {/* Main tab navigation */}
-        <nav className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-gray-200 -mx-5 sm:-mx-8 px-5 sm:px-8 mb-8 flex items-center gap-1 overflow-x-auto whitespace-nowrap" aria-label="Sections">
-          {MAIN_TABS.map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setMainTab(key)}
-              aria-pressed={mainTab === key}
-              className={`text-[11px] font-black uppercase tracking-widest px-3 py-3 border-b-[3px] transition-colors flex-shrink-0 ${mainTab === key ? 'border-black text-black' : 'border-transparent text-gray-400 hover:text-black'}`}
-            >
-              {label}
-            </button>
-          ))}
-          <span className="ml-auto flex items-center gap-3 flex-shrink-0 pl-4">
-            <button onClick={handleCopyLink} title="Copy a shareable link to this exact view" className="text-[11px] font-black uppercase tracking-widest text-gray-500 hover:text-black transition-colors flex items-center gap-1.5">
-              <Link2 size={12} /> {copyLinkLabel}
-            </button>
-            <button onClick={() => setAppView('historic')} className="text-[11px] font-black uppercase tracking-widest text-gray-400 hover:text-black transition-colors flex items-center gap-1.5">
-              <Activity size={12} /> 30-Year View →
-            </button>
-          </span>
-        </nav>
+        </div>
 
         {/* Active tab content */}
         {mainTab === 'headlines' && (
           <Headlines
             parsedData={parsedData}
             hotspots={hotspots}
+            rawData={rawData}
             activeTab={activeTab}
             activeGeo={activeGeo}
             isTouristPrecinct={isTouristPrecinct}
@@ -518,7 +476,7 @@ export default function App() {
               Published by <a href="https://vitalcitynyc.org/" className="underline hover:text-black" target="_blank" rel="noopener noreferrer">Vital City</a>, an independent New York policy journal. The project is open source; data refreshes every Monday after NYPD posts the new CompStat report.
             </p>
             <p className="leading-snug text-gray-500">
-              CompStat data through {parsedData.period?.week_end || '—'}. Page rendered {new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}.
+              Updated {(parsedData.period?.week_end || '—').replace(/\/20(\d\d)$/, '/$1')} (CompStat week ending). Page rendered {new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}.{fetchError && ' Live fetch unavailable — showing embedded data.'}
             </p>
             <p className="mt-3"><a href="https://github.com/joshgreenman1973/compstat-ledger" className="underline hover:text-black" target="_blank" rel="noopener noreferrer">View source on GitHub →</a></p>
           </div>

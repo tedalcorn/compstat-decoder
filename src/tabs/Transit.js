@@ -153,11 +153,10 @@ export default function Transit({ rawData, downloadCSV }) {
     return (
       <button
         onClick={() => setSortBy(field)}
-        title="Sort"
-        className={`group inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${active ? 'text-black' : 'text-gray-500 hover:text-black'} ${align === 'right' ? 'justify-end' : 'justify-start'}`}
+        title="Click to sort"
+        className={`text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${active ? 'text-black' : 'text-gray-500 hover:text-black'} ${align === 'right' ? 'text-right' : 'text-left'}`}
       >
-        <span className="underline decoration-dotted decoration-gray-300 underline-offset-[3px] group-hover:decoration-black">{children}</span>
-        <span className={`inline-block text-[12px] leading-none transition-opacity ${active ? 'opacity-100 text-black' : 'opacity-40 group-hover:opacity-80'}`}>{active ? '▼' : '↕'}</span>
+        {children}
       </button>
     );
   };
@@ -169,9 +168,6 @@ export default function Transit({ rawData, downloadCSV }) {
         <h2 className="text-2xl sm:text-3xl font-black leading-[1.12] tracking-tight mb-3 text-black max-w-3xl">
           On subways and buses, major felony incidents are {(ytd.pct_change ?? 0) > 0 ? 'up' : 'down'} {Math.abs(ytd.pct_change ?? 0).toFixed(1)}% year-to-date{typeof ytd.current_year === 'number' && typeof ytd.prior_year === 'number' ? ` (${ytd.current_year.toLocaleString()} in ${yy(endYear)} YTD vs ${ytd.prior_year.toLocaleString()} in ${yy(endYear - 1)} YTD)` : ''}.
         </h2>
-        <p className="text-[14px] font-serif text-gray-600 max-w-3xl">
-          Major felony offenses reported to the NYPD Transit Bureau, from the live weekly CompStat feed, through the week ending {period.week_end || '—'}.
-        </p>
         <div className="flex flex-wrap gap-x-10 gap-y-3 mt-5 pb-6 border-b border-gray-200">
           <div className="flex flex-col">
             <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Major felonies · last 28 days</span>

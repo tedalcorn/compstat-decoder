@@ -3,7 +3,7 @@ import { geoPath, geoMercator } from 'd3-geo';
 import precinctGeoJSON from '../data/nyc_precincts.json';
 import councilData from '../data/council_districts.json';
 import {
-  GEO_POPULATIONS, PRECINCT_NEIGHBORHOODS, safeNum, formatPct, pctColor,
+  PRECINCT_NEIGHBORHOODS, safeNum, formatPct, pctColor,
   toOrdinalPrecinct, Download,
 } from '../shared';
 
@@ -72,9 +72,6 @@ const DistrictMap = ({ district, onSelectPrecinct, width = 560, height = 520 }) 
           );
         })}
       </svg>
-      <p className="text-[10px] text-gray-500 mt-2">
-        Bold outline = council district. Colored = precincts overlapping the district, labeled with the share of the district's area each covers. Click a precinct for its full numbers.
-      </p>
     </div>
   );
 };
@@ -87,30 +84,33 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
   const endYear = period?.week_end ? new Date(period.week_end).getFullYear() : new Date().getFullYear();
   const yy = (y) => `’${String(y).slice(-2)}`;
 
-  // Pull each overlapping precinct's CompStat totals from the live feed.
+  // Pull each overlapping precinct's CompStat totals from the live feed, split into
+  // the full major index and its violent / property subsets.
   const rows = useMemo(() => {
+    const VIOLENT = ['Murder', 'Rape', 'Robbery', 'Fel. Assault'];
+    const PROPERTY = ['Burglary', 'Gr. Larceny', 'G.L.A.'];
     return district.precincts.map((o, i) => {
       const geoKey = toOrdinalPrecinct(o.precinct);
       const d = rawData?.[geoKey];
-      let cur = null, pri = null;
-      if (d?.seven_major_felonies) {
-        cur = 0; pri = 0;
-        Object.values(d.seven_major_felonies).forEach(s => {
+      const tally = (names) => {
+        if (!d?.seven_major_felonies) return { cur: null, pri: null, pct: null, diff: null };
+        let cur = 0, pri = 0;
+        Object.entries(d.seven_major_felonies).forEach(([name, s]) => {
+          if (names && !names.includes(name)) return;
           cur += safeNum(activeTab === 'ytd' ? s?.year_to_date?.current_year : s?.week_to_date?.current_year);
           pri += safeNum(activeTab === 'ytd' ? s?.year_to_date?.prior_year : s?.week_to_date?.prior_year);
         });
-      }
-      const pct = (pri != null && pri > 0) ? ((cur - pri) / pri) * 100 : null;
-      const pop = GEO_POPULATIONS[geoKey];
+        return { cur, pri, pct: pri > 0 ? ((cur - pri) / pri) * 100 : null, diff: cur - pri };
+      };
       return {
         precinct: o.precinct,
         geoKey,
         share: o.share,
         color: PRECINCT_COLORS[i % PRECINCT_COLORS.length],
         hoods: PRECINCT_NEIGHBORHOODS[geoKey] || '',
-        cur, pri, pct,
-        diff: (cur != null && pri != null) ? cur - pri : null,
-        rate: (cur != null && pop) ? (cur / pop) * 100000 : null,
+        all: tally(null),
+        violent: tally(VIOLENT),
+        property: tally(PROPERTY),
       };
     });
   }, [district, rawData, activeTab]);
@@ -120,12 +120,7 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
   return (
     <div>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-2 gap-4">
-        <div>
-          <h2 className="text-2xl font-black font-serif">By Council District</h2>
-          <p className="text-sm text-gray-500 font-serif mt-1 max-w-2xl">
-            Which NYPD precincts serve each Council district, and how crime is trending in each one. Precinct boundaries don't follow district lines, so shares show how much of the district each precinct covers.
-          </p>
-        </div>
+        <h2 className="text-2xl font-black font-serif">By Council District</h2>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
             onClick={() => setDistrictNum(district.district <= 1 ? 51 : district.district - 1)}
@@ -156,11 +151,17 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
 
         <div>
           <div className="flex items-baseline justify-between gap-3 mb-3">
-            <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-500">Major felonies by precinct · {periodWord}</h4>
+            <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-500">Major felonies by precinct · Year-on-year change ({periodWord})</h4>
             <button
               onClick={() => {
-                const header = ['Precinct', 'Neighborhoods', 'Share of district area', `${yy(endYear)} ${periodWord}`, `${yy(endYear - 1)} ${periodWord}`, 'YTD change (incidents)', 'YTD change (%)', 'Rate per 100k'];
-                const data = rows.map(r => [r.geoKey, r.hoods, (r.share * 100).toFixed(1) + '%', r.cur ?? '', r.pri ?? '', r.diff ?? '', typeof r.pct === 'number' ? r.pct.toFixed(2) : '', r.rate != null ? r.rate.toFixed(1) : '']);
+                const header = ['Precinct', 'Neighborhoods', 'Share of district area',
+                  `All ${yy(endYear)}`, `All ${yy(endYear - 1)}`, 'All change (%)',
+                  `Violent ${yy(endYear)}`, `Violent ${yy(endYear - 1)}`, 'Violent change (%)',
+                  `Property ${yy(endYear)}`, `Property ${yy(endYear - 1)}`, 'Property change (%)'];
+                const data = rows.map(r => [r.geoKey, r.hoods, (r.share * 100).toFixed(1) + '%',
+                  r.all.cur ?? '', r.all.pri ?? '', typeof r.all.pct === 'number' ? r.all.pct.toFixed(2) : '',
+                  r.violent.cur ?? '', r.violent.pri ?? '', typeof r.violent.pct === 'number' ? r.violent.pct.toFixed(2) : '',
+                  r.property.cur ?? '', r.property.pri ?? '', typeof r.property.pct === 'number' ? r.property.pct.toFixed(2) : '']);
                 downloadCSV(`council_district_${district.district}_precincts.csv`, [header, ...data]);
               }}
               title="Download this table as CSV"
@@ -173,40 +174,39 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
               <tr className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b-2 border-black">
                 <th className="py-2">Precinct</th>
                 <th className="py-2 text-right">Share of district</th>
-                <th className="py-2 text-right">{yy(endYear)}</th>
-                <th className="py-2 text-right">{yy(endYear - 1)}</th>
-                <th className="py-2 text-right">Change</th>
+                <th className="py-2 text-right">All</th>
+                <th className="py-2 text-right">Violent</th>
+                <th className="py-2 text-right">Property</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {rows.map(r => (
-                <tr key={r.precinct} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => onSelectPrecinct(r.geoKey)}>
-                  <td className="py-2.5 pr-2">
-                    <div className="flex items-center gap-2">
-                      <span className="inline-block w-3 h-3 rounded-sm flex-shrink-0" style={{ background: r.color }} />
-                      <div>
-                        <div className="text-[13px] font-bold text-black leading-tight">{r.geoKey.replace(' Precinct', ' Pct')}</div>
-                        {r.hoods && <div className="text-[11px] text-gray-500 leading-tight">{r.hoods}</div>}
+              {rows.map(r => {
+                const changeCell = (t) => (
+                  <td className="py-2.5 text-right tabular-nums text-[13px] font-bold" style={{ color: pctColor(t.pct) }}>
+                    {typeof t.pct === 'number' ? formatPct(t.pct) : '—'}
+                    {t.diff != null && <div className="text-[10px] font-normal text-gray-400">{t.diff > 0 ? '+' : ''}{t.diff.toLocaleString()}</div>}
+                  </td>
+                );
+                return (
+                  <tr key={r.precinct} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => onSelectPrecinct(r.geoKey)}>
+                    <td className="py-2.5 pr-2">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-block w-3 h-3 rounded-sm flex-shrink-0" style={{ background: r.color }} />
+                        <div>
+                          <div className="text-[13px] font-bold text-black leading-tight">{r.geoKey.replace(' Precinct', ' Pct')}</div>
+                          {r.hoods && <div className="text-[11px] text-gray-500 leading-tight">{r.hoods}</div>}
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="py-2.5 text-right tabular-nums text-[13px] font-bold text-gray-700">{Math.round(r.share * 100)}%</td>
-                  <td className="py-2.5 text-right tabular-nums text-[13px] font-black text-black">
-                    {r.cur != null ? r.cur.toLocaleString() : '—'}
-                    {r.rate != null && <div className="text-[10px] font-normal text-gray-400">{r.rate.toFixed(0)}/100k</div>}
-                  </td>
-                  <td className="py-2.5 text-right tabular-nums text-[13px] text-gray-500">{r.pri != null ? r.pri.toLocaleString() : '—'}</td>
-                  <td className="py-2.5 text-right tabular-nums text-[12px] font-bold" style={{ color: pctColor(r.pct) }}>
-                    {r.diff != null ? `${r.diff > 0 ? '+' : ''}${r.diff.toLocaleString()}` : '—'}
-                    {typeof r.pct === 'number' && <div className="text-[11px]">{formatPct(r.pct)}</div>}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="py-2.5 text-right tabular-nums text-[13px] font-bold text-gray-700">{Math.round(r.share * 100)}%</td>
+                    {changeCell(r.all)}
+                    {changeCell(r.violent)}
+                    {changeCell(r.property)}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-          <p className="mt-3 text-[11px] font-serif italic text-gray-500 leading-snug">
-            Counts are each precinct's full CompStat total (7 major felonies, {activeTab === 'ytd' ? `year-to-date through ${period.week_end || '—'}` : `week of ${period.week_start || '—'}–${period.week_end || '—'}`}), including the parts of the precinct outside the district — NYPD does not publish crime totals cut to council-district lines. Shares of district area computed from NYC's official 2023 council and precinct boundary files.
-          </p>
         </div>
       </div>
     </div>

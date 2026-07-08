@@ -274,6 +274,45 @@ export const formatPeriodDate = (iso) => {
   return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' });
 };
 
+// NYPD patrol borough for each precinct number — used to scope "patterns" rules
+// to a borough and to check whether a precinct bucks its borough's trend.
+const PATROL_BOROUGHS = {
+  'Manhattan South': [1, 5, 6, 7, 9, 10, 13, 14, 17, 18],
+  'Manhattan North': [19, 20, 22, 23, 24, 25, 26, 28, 30, 32, 33, 34],
+  'Bronx': [40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52],
+  'Brooklyn South': [60, 61, 62, 63, 66, 67, 68, 69, 70, 71, 72, 76, 78],
+  'Brooklyn North': [73, 75, 77, 79, 81, 83, 84, 88, 90, 94],
+  'Queens South': [100, 101, 102, 103, 105, 106, 107, 113],
+  'Queens North': [104, 108, 109, 110, 111, 112, 114, 115],
+  'Staten Island': [120, 121, 122, 123],
+};
+export const PATROL_BOROUGH_NAMES = Object.keys(PATROL_BOROUGHS);
+export const precinctPatrolBorough = (geoName) => {
+  const num = parseInt(String(geoName).replace(/\D+/g, ''), 10);
+  if (!num) return null;
+  for (const [b, nums] of Object.entries(PATROL_BOROUGHS)) {
+    if (nums.includes(num)) return b;
+  }
+  return null;
+};
+
+// Spell out small counts so sentences never start with a numeral.
+const NUM_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+export const numWord = (n, capitalize = false) => {
+  const w = (n >= 0 && n <= 10) ? NUM_WORDS[n] : String(n);
+  return capitalize ? w.charAt(0).toUpperCase() + w.slice(1) : w;
+};
+
+// crime_history.json stores citywide history as a list of {y, Crime: count} rows but
+// precinct history as {year: {Crime: count}} — normalize the latter to the list shape
+// the historical-context helpers expect.
+export const precinctHistorySeries = (dict) => {
+  if (!dict) return null;
+  return Object.entries(dict)
+    .map(([y, vals]) => ({ y: parseInt(y, 10), ...vals }))
+    .sort((a, b) => a.y - b.y);
+};
+
 export const toOrdinalPrecinct = (n) => {
   const num = parseInt(n, 10);
   if ([11, 12, 13].includes(num % 100)) return num + "th Precinct";

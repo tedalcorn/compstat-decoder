@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import crimeHistory from '../data/crime_history.json';
 import {
-  CW, VC, MAJOR_VIOLENT, MAJOR_PROPERTY,
+  CW, VC, MAJOR_VIOLENT, MAJOR_PROPERTY, PATROL_BOROUGH_NAMES,
   formatPop, formatGeoName, expandCrime, expandCrimeTitle, toOrdinalPrecinct,
-  getPrePandemicRecovery, renderMarkdown, calcPct,
+  getPrePandemicRecovery, precinctHistorySeries, precinctPatrolBorough, numWord,
+  renderMarkdown, calcPct,
   RTCI_GROUPS, RTCI_FALLBACK, RTCI_FALLBACK_PERIOD, RTCI_FALLBACK_UPDATED, rtciRate,
   Users, Download,
 } from '../shared';
@@ -43,11 +44,11 @@ const NationalSidebar = ({ rtciData, downloadCSV }) => {
     if (nyc) citiesForGroup.unshift(nyc);
   }
 
-  // Cities reporting a zero for the active metric haven't submitted data to RTCI for
-  // this window (e.g. Jacksonville) — showing them as "0 crime" would rank them safest.
-  // Exclude them from the chart and disclose the exclusion below.
+  // A zero for the active metric means the city hasn't reported data to RTCI for this
+  // window (e.g. Jacksonville) — ranking it would show it as the safest big city in
+  // America. Park those cities at the bottom as "awaiting updated data" instead.
   const reporting = citiesForGroup.filter(c => c[activeMetric] > 0);
-  const missing = citiesForGroup.filter(c => !(c[activeMetric] > 0)).map(c => c.city);
+  const missing = citiesForGroup.filter(c => !(c[activeMetric] > 0));
 
   const ranked = reporting.map(c => ({ ...c, rate: rtciRate(c[activeMetric], c.pop) }))
     .sort((a, b) => a.rate - b.rate);
@@ -91,12 +92,13 @@ const NationalSidebar = ({ rtciData, downloadCSV }) => {
             </div>
           );
         })}
+        {missing.map(c => (
+          <div key={c.city} className="flex items-center gap-2 opacity-70">
+            <span className="w-[86px] text-right text-[11px] leading-tight truncate font-medium text-gray-400" title={c.city}>{c.city}</span>
+            <span className="flex-1 text-[10px] italic text-gray-400">Awaiting updated data</span>
+          </div>
+        ))}
       </div>
-      {missing.length > 0 && (
-        <p className="mt-2.5 text-[10px] text-gray-400 italic leading-snug">
-          No data reported for {missing.join(', ')} in this window — excluded rather than shown as zero.
-        </p>
-      )}
       {activeMetric === 'murder' && (
         <p className="mt-2.5 text-[10px] font-serif italic text-gray-500 leading-snug">
           Murder is the most reliably comparable category across cities; violent and property totals are more affected by classification and reporting differences.
@@ -128,13 +130,97 @@ const NationalSidebar = ({ rtciData, downloadCSV }) => {
 };
 
 /* ------------------------------------------------------------------ */
-/* HEADLINES TAB                                                       */
-/* Topline trends in a fixed order (major index → violent subset →     */
-/* property subset), then notable patterns as bullets, with the        */
-/* national comparison as a right-hand sidebar.                        */
+/* PATTERNS & OUTLIERS — geography-aware rules                         */
+/* 1. Inequality: citywide and boroughs only.                          */
+/* 2. Biggest contributor to this geography's change: everywhere.      */
+/* 3. Crime types above pre-pandemic baseline: citywide + precincts    */
+/*    (no borough-level history exists).                               */
+/* 4. Sharpest local decline / improvement: citywide and boroughs      */
+/*    (scoped to the borough's precincts upstream).                    */
+/* 5. Precincts only: what's most out of keeping with the citywide     */
+/*    average, flagged when it also bucks the borough-wide trend.      */
 /* ------------------------------------------------------------------ */
-export default function Headlines({ parsedData, hotspots, activeTab, activeGeo, isTouristPrecinct, activePop, rtciData, downloadCSV }) {
-  const { totals, felonies, driver, period, localAnomaly, localBrightSpot, topSurge, topDrop } = parsedData;
+function buildBullets({ parsedData, hotspots, rawData, activeGeo, activeTab, isTouristPrecinct }) {
+  const { totals, felonies, all, driver, localAnomaly, localBrightSpot } = parsedData;
+  const isCitywide = activeGeo === 'citywide';
+  const isBorough = PATROL_BOROUGH_NAMES.includes(activeGeo);
+  const isPrecinct = activeGeo.includes('Precinct');
+  const periodWord = activeTab === 'ytd' ? 'YTD' : 'this week';
+  const hereWord = isCitywide ? 'citywide' : isBorough ? `across ${activeGeo}` : 'here';
+  const bullets = [];
+
+  // 1. Geographic concentration — citywide and boroughs.
+  const ineq = hotspots?.inequality;
+  if ((isCitywide || isBorough) && ineq) {
+    bullets.push(`**Crime is concentrated geographically:** the ${numWord(ineq.topCount)} highest-crime precincts${isBorough ? ` in ${activeGeo}` : ''} (${formatPop(ineq.topPop)} residents) match the violent crime total of the ${numWord(ineq.bottomCount)} safest (${formatPop(ineq.bottomPop)} residents).`);
+  }
+
+  // 2. Biggest contributor to this geography's change — everywhere.
+  if (driver && driver.name && Math.abs(driver.share) >= 5) {
+    const direction = totals.diff > 0 ? 'increase' : 'decline';
+    bullets.push(`**The biggest driver of the ${direction} ${hereWord} is ${expandCrime(driver.name)}:** it accounts for ${Math.round(Math.abs(driver.share))}% of the ${direction} in the index total (${Math.abs(driver.diff).toLocaleString()} ${driver.diff < 0 ? 'fewer' : 'more'} cases than last year).`);
+  }
+
+  // 3. Crime types above pre-pandemic baseline — citywide + precincts.
+  const history = isCitywide ? crimeHistory.citywide
+    : isPrecinct ? precinctHistorySeries(crimeHistory.precincts?.[activeGeo])
+    : null;
+  const recovery = history ? getPrePandemicRecovery(felonies, history) : null;
+  if (recovery && recovery.total > 0) {
+    if (recovery.above.length === 0) {
+      bullets.push(`**All ${numWord(recovery.total)} major felonies are tracking at or below their pre-pandemic baseline (2017–19 average)**${isPrecinct ? ' in this precinct' : ''}, projected to full year.`);
+    } else {
+      const names = recovery.above.map(a => expandCrimeTitle(a.name));
+      const joined = names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+      bullets.push(`**${numWord(names.length, true)} crime ${names.length === 1 ? 'type is' : 'types are'} still tracking above the pre-pandemic baseline (2017–19 average):** ${joined}.`);
+    }
+  }
+
+  // 4. Sharpest local decline / improvement — citywide and boroughs.
+  if (isCitywide || isBorough) {
+    const spike = hotspots?.topPctSpike;
+    if (spike && typeof spike.pct === 'number' && spike.pct >= 25) {
+      bullets.push(`**The sharpest local decline is ${expandCrime(spike.crime)} in the ${toOrdinalPrecinct(spike.precinct)}:** up ${Math.round(spike.pct)}% ${periodWord}, from ${spike.prior.toLocaleString()} to ${spike.current.toLocaleString()}.`);
+    }
+    const drop = hotspots?.topPctDrop;
+    if (drop && typeof drop.pct === 'number' && drop.pct <= -25) {
+      bullets.push(`**The sharpest local improvement is ${expandCrime(drop.crime)} in the ${toOrdinalPrecinct(drop.precinct)}:** down ${Math.round(Math.abs(drop.pct))}% ${periodWord}, from ${drop.prior.toLocaleString()} to ${drop.current.toLocaleString()}.`);
+    }
+  }
+
+  // 5. Precincts only: most out of keeping with the citywide average, with a note
+  //    when the same crime is also moving against the borough-wide trend.
+  if (isPrecinct && !isTouristPrecinct) {
+    const borough = precinctPatrolBorough(activeGeo);
+    const boroughData = borough ? rawData?.[borough] : null;
+    const buckNote = (crimeName) => {
+      if (!boroughData) return '';
+      const stats = boroughData.seven_major_felonies?.[crimeName] || boroughData.additional_stats?.[crimeName];
+      const bPct = activeTab === 'ytd' ? stats?.year_to_date?.pct_change : stats?.week_to_date?.pct_change;
+      const local = all.find(o => o.name === crimeName);
+      const lPct = local ? calcPct(local.current, local.prior) : null;
+      if (typeof bPct !== 'number' || typeof lPct !== 'number') return '';
+      if (Math.sign(bPct) !== Math.sign(lPct) && Math.abs(bPct) >= 1 && Math.abs(lPct) >= 1) {
+        return ` It also bucks the borough-wide trend: ${expandCrime(crimeName)} is ${lPct > 0 ? 'up' : 'down'} ${Math.abs(lPct).toFixed(0)}% here but ${bPct > 0 ? 'up' : 'down'} ${Math.abs(bPct).toFixed(0)}% across ${borough}.`;
+      }
+      return '';
+    };
+    if (localAnomaly) {
+      bullets.push(`**The most elevated crime vs. the citywide average is ${expandCrime(localAnomaly.name)}:** ${localAnomaly.localRate.toFixed(1)} per 100k residents here, ${localAnomaly.ratio.toFixed(1)}x the citywide rate (${localAnomaly.cityRate.toFixed(1)}).${buckNote(localAnomaly.name)}`);
+    }
+    if (localBrightSpot) {
+      bullets.push(`**The brightest spot vs. the citywide average is ${expandCrime(localBrightSpot.name)}:** the rate here sits ${Math.round((1 - localBrightSpot.ratio) * 100)}% below the citywide rate.${buckNote(localBrightSpot.name)}`);
+    }
+  }
+
+  return bullets;
+}
+
+/* ------------------------------------------------------------------ */
+/* HEADLINES TAB                                                       */
+/* ------------------------------------------------------------------ */
+export default function Headlines({ parsedData, hotspots, rawData, activeTab, activeGeo, isTouristPrecinct, activePop, rtciData, downloadCSV }) {
+  const { totals, felonies, period } = parsedData;
 
   // Violent / property subsets of the 7-felony major index.
   const subset = (names) => {
@@ -161,51 +247,7 @@ export default function Headlines({ parsedData, hotspots, activeTab, activeGeo, 
     { label: 'Property index', sub: 'Burglary, grand larceny, auto theft', cur: property.cur, pri: property.pri, pct: property.pct },
   ];
 
-  // Notable patterns — the old "In context" box plus the three stat cards, folded into
-  // one bulleted list. Each bullet leads with a bolded headline.
-  const bullets = [];
-  if (activeGeo === 'citywide') {
-    const ineq = hotspots?.inequality;
-    if (ineq) {
-      bullets.push(`**Crime is concentrated geographically:** the ${ineq.topCount} highest-crime precincts (${formatPop(ineq.topPop)} residents) match the violent crime total of the ${ineq.bottomCount} safest (${formatPop(ineq.bottomPop)} residents).`);
-    }
-    if (driver && driver.name && Math.abs(driver.share) >= 5) {
-      const direction = totals.diff > 0 ? 'increase' : 'decline';
-      bullets.push(`**The biggest driver of the ${direction} is ${expandCrime(driver.name)}:** it accounts for ${Math.round(Math.abs(driver.share))}% of the citywide ${direction} in the index total (${Math.abs(driver.diff).toLocaleString()} ${driver.diff < 0 ? 'fewer' : 'more'} cases than last year).`);
-    }
-    const recovery = getPrePandemicRecovery(felonies, crimeHistory.citywide);
-    if (recovery && recovery.total > 0) {
-      if (recovery.above.length === 0) {
-        bullets.push(`**All ${recovery.total} major felonies are tracking at or below their pre-pandemic baseline** (2017–19 average), projected to full year.`);
-      } else {
-        const names = recovery.above.map(a => expandCrimeTitle(a.name));
-        const joined = names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
-        bullets.push(`**${names.length === 1 ? 'One crime type is' : `${names.length} crime types are`} still tracking above the pre-pandemic baseline** (2017–19 average): ${joined}. The other ${recovery.below} major felonies are at or below it.`);
-      }
-    }
-    const spike = hotspots?.topPctSpike;
-    if (spike && typeof spike.pct === 'number' && spike.pct >= 25) {
-      bullets.push(`**The sharpest local shift is ${expandCrime(spike.crime)} in the ${toOrdinalPrecinct(spike.precinct)}:** up ${Math.round(spike.pct)}% ${periodWord}, from ${spike.prior.toLocaleString()} to ${spike.current.toLocaleString()}.`);
-    }
-    const drop = hotspots?.topPctDrop;
-    if (drop && typeof drop.pct === 'number' && drop.pct <= -25) {
-      bullets.push(`**The sharpest local improvement is ${expandCrime(drop.crime)} in the ${toOrdinalPrecinct(drop.precinct)}:** down ${Math.round(Math.abs(drop.pct))}% ${periodWord}, from ${drop.prior.toLocaleString()} to ${drop.current.toLocaleString()}.`);
-    }
-  } else {
-    if (driver && driver.share >= 25) {
-      bullets.push(`**The local trajectory is driven by ${expandCrime(driver.name)}:** the change in its volume accounts for ${Math.round(driver.share)}% of this area's overall shift.`);
-    }
-    if (localAnomaly && !isTouristPrecinct) {
-      bullets.push(`**Elevated local risk — ${expandCrime(localAnomaly.name)}:** the rate here is ${localAnomaly.localRate.toFixed(1)} per 100k residents, ${localAnomaly.ratio.toFixed(1)}x the citywide average (${localAnomaly.cityRate.toFixed(1)}).`);
-    } else if (topSurge && topSurge.pct > 0) {
-      bullets.push(`**${expandCrimeTitle(topSurge.name)} is rising:** up ${Math.round(topSurge.pct)}% compared to last year (${topSurge.prior.toLocaleString()} → ${topSurge.current.toLocaleString()}).`);
-    }
-    if (localBrightSpot && !isTouristPrecinct) {
-      bullets.push(`**Local bright spot — ${expandCrime(localBrightSpot.name)}:** the rate here sits ${Math.round((1 - localBrightSpot.ratio) * 100)}% below the citywide average.`);
-    } else if (topDrop && topDrop.pct < 0) {
-      bullets.push(`**${expandCrimeTitle(topDrop.name)} is falling:** down ${Math.round(Math.abs(topDrop.pct))}% compared to last year (${topDrop.prior.toLocaleString()} → ${topDrop.current.toLocaleString()}).`);
-    }
-  }
+  const bullets = buildBullets({ parsedData, hotspots, rawData, activeGeo, activeTab, isTouristPrecinct });
 
   return (
     <div>
@@ -225,7 +267,7 @@ export default function Headlines({ parsedData, hotspots, activeTab, activeGeo, 
             </svg>
           );
         })()}
-        <h1 className="text-2xl sm:text-3xl font-black leading-[1.12] tracking-tight mb-5 text-black max-w-3xl">
+        <h1 className="text-[22px] sm:text-[26px] lg:text-[29px] font-black leading-[1.15] tracking-tight mb-5 text-black">
           Major index offenses are {totals.diff > 0 ? 'up' : 'down'} {Math.abs(totals.mPct).toFixed(1)}% {activeTab === 'ytd' ? 'year-to-date' : 'this week'} {activeGeo === 'citywide' ? '' : `in the ${activeGeo} `}vs. prior year.
         </h1>
         <div className="divide-y divide-gray-100 border-y border-gray-200 max-w-3xl">
@@ -235,8 +277,12 @@ export default function Headlines({ parsedData, hotspots, activeTab, activeGeo, 
               <span className={`tabular-nums font-black w-28 whitespace-nowrap ${i === 0 ? 'text-[22px]' : 'text-[17px]'}`} style={{ color: (s.pct ?? 0) > 0 ? '#c2410c' : (s.pct ?? 0) < 0 ? '#15803d' : '#374151' }}>
                 {fmtTrendPct(s.pct)}
               </span>
-              <span className="text-[13px] text-gray-600 tabular-nums">
-                {s.cur.toLocaleString()} in {yy(endYear)} {periodWord} vs {s.pri.toLocaleString()} in {yy(endYear - 1)} {periodWord}
+              <span className="text-[13px] text-gray-600 tabular-nums whitespace-nowrap">
+                {s.pri.toLocaleString()} in {yy(endYear - 1)} {periodWord}
+                <span className="mx-1.5 font-bold" style={{ color: (s.pct ?? 0) > 0 ? '#c2410c' : (s.pct ?? 0) < 0 ? '#15803d' : '#6b7280' }} aria-label={(s.pct ?? 0) > 0 ? 'rose to' : 'fell to'}>
+                  {(s.pct ?? 0) > 0 ? '↗' : (s.pct ?? 0) < 0 ? '↘' : '→'}
+                </span>
+                {s.cur.toLocaleString()} in {yy(endYear)} {periodWord}
               </span>
               <span className="text-[11px] text-gray-400 italic hidden md:inline">{s.sub}</span>
             </div>
