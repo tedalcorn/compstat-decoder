@@ -324,7 +324,7 @@ export default function Headlines({ parsedData, hotspots, rawData, activeTab, ac
       {isTouristPrecinct && <div className="mb-6 p-4 bg-gray-50 border-l-4 border-gray-400 text-sm font-serif italic text-gray-700"><strong>Context Note:</strong> {formatGeoName(activeGeo)} is a high-traffic hub with few residents; crime rates primarily reflect commercial/visitor density.</div>}
 
       <h1 className="text-[22px] sm:text-[26px] lg:text-[29px] font-black leading-[1.15] tracking-tight mb-5 text-black">
-        Major index offenses are {totals.diff > 0 ? 'up' : 'down'} {Math.abs(totals.mPct).toFixed(1)}% {activeTab === 'ytd' ? 'year-to-date' : 'this week'} {activeGeo === 'citywide' ? '' : `in the ${activeGeo} `}vs. prior year.
+        Major index offenses are {totals.diff > 0 ? 'up' : 'down'} {Math.abs(totals.mPct).toFixed(1)}% {activeTab === 'ytd' ? 'year-to-date' : 'this week'} {activeGeo === 'citywide' ? '' : `in the ${activeGeo} `}compared to last year.
       </h1>
 
       {/* Topline trends (left) with the locator map aligned to the top of the table (right) */}

@@ -14,15 +14,15 @@ import Transit from './tabs/Transit';
 import CouncilDistricts from './tabs/CouncilDistricts';
 import About from './tabs/About';
 
+// The brand itself is the lead ("headlines") page, so it isn't listed as a tab.
 const MAIN_TABS = [
-  ['headlines', 'Headlines'],
-  ['numbers', 'Crime Numbers'],
+  ['numbers', 'Crime Types'],
   ['transit', 'In Transit'],
   ['precincts', 'By Precinct'],
   ['council', 'By Council District'],
   ['about', 'About'],
 ];
-const TAB_KEYS = MAIN_TABS.map(t => t[0]);
+const TAB_KEYS = ['headlines', ...MAIN_TABS.map(t => t[0])];
 // Tabs where the global geography selector does nothing (they're citywide-only or bring
 // their own selector), and tabs that are year-to-date only (weekly counts unavailable/too small).
 const GEO_INERT_TABS = ['transit', 'precincts', 'council'];
@@ -149,9 +149,12 @@ export default function App() {
         const data = await res.json();
         if (data && data.length > 0) {
           const pName = toOrdinalPrecinct(data[0].precinct);
-          if (rawData[pName]) selectGeo(pName);
+          selectGeo(rawData[pName] ? pName : 'citywide');
+        } else {
+          // Accepted location but not inside any NYPD precinct (outside NYC) — show citywide.
+          selectGeo('citywide');
         }
-      } catch (err) { /* ignore */ }
+      } catch (err) { selectGeo('citywide'); }
       finally { setIsLocating(false); }
     }, () => setIsLocating(false));
   };
@@ -267,7 +270,7 @@ export default function App() {
         catch { return s; }
       };
       const end = fmt(parsedData.period.week_end);
-      document.title = `NYC Crime Breakdown · Updated ${end}`;
+      document.title = `NYC CompStat Decoder · Updated ${end}`;
     }
   }, [parsedData.period?.week_end, parsedData.period?.week_start]);
 
@@ -351,9 +354,10 @@ export default function App() {
         <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200 -mx-5 sm:-mx-8 px-5 sm:px-8 mb-8 py-2 flex flex-wrap items-center gap-x-2 gap-y-2">
           <button
             onClick={() => { setActiveGeo('citywide'); setMainTab('headlines'); }}
-            title="Back to citywide headlines"
-            className="text-[10px] font-black uppercase tracking-wider text-black flex-shrink-0 mr-1 hover:text-indigo-600 transition-colors">
-            NYC Crime Breakdown
+            aria-pressed={mainTab === 'headlines'}
+            title="Home — citywide headlines"
+            className={`text-[10px] font-black uppercase tracking-wider flex-shrink-0 mr-2 py-1.5 border-b-2 transition-colors ${mainTab === 'headlines' ? 'border-black text-black' : 'border-transparent text-black hover:text-indigo-600'}`}>
+            NYC CompStat Decoder
           </button>
           <nav className="flex items-center" aria-label="Sections">
             {MAIN_TABS.map(([key, label]) => (

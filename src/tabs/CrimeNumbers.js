@@ -66,8 +66,7 @@ export default function CrimeNumbers({ parsedData, activeTab, activeGeo, isTouri
 
   return (
     <div>
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-4 gap-4">
-        <h2 className="text-2xl font-black font-serif">Crime Numbers</h2>
+      <div className="flex flex-wrap justify-between items-center mb-4 gap-3">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex bg-gray-100 p-1 rounded border border-gray-200">
             {[['all', 'All'], ['Person', 'Person'], ['Property', 'Property']].map(([val, label]) => (

@@ -4,8 +4,8 @@ import precinctGeoJSON from '../data/nyc_precincts.json';
 import councilData from '../data/council_districts.json';
 import {
   PRECINCT_NEIGHBORHOODS, MAJOR_VIOLENT, MAJOR_PROPERTY, VOLATILITY_THRESHOLD,
-  safeNum, formatPct, pctColor, dirPct, expandCrime,
-  toOrdinalPrecinct, renderMarkdown, SearchIcon, Download,
+  safeNum, pctColor, dirPct, dirCount, expandCrime,
+  toOrdinalPrecinct, renderMarkdown, SearchIcon, ChevronDown, Download,
 } from '../shared';
 
 const MAJORS = ['Murder', 'Rape', 'Robbery', 'Fel. Assault', 'Burglary', 'Gr. Larceny', 'G.L.A.'];
@@ -111,8 +111,8 @@ const DistrictMap = ({ district, onSelectPrecinct, width = 560, height = 520 }) 
   }, [district, width, height]);
 
   return (
-    <div className="relative">
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto bg-gray-50 rounded-sm border border-gray-200">
+    <div className="relative h-full min-h-[440px]">
+      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet" className="w-full h-full bg-gray-50 rounded-sm border border-gray-200">
         {/* Context: every precinct, gray */}
         {precinctGeoJSON.features.map(f => {
           const pNum = parseInt(f.properties.precinct, 10);
@@ -152,9 +152,10 @@ const DistrictMap = ({ district, onSelectPrecinct, width = 560, height = 520 }) 
   );
 };
 
-/* Type-to-search district picker — the flat 51-item dropdown was unwieldy.
-   Matches on district number or council-member name. */
-const DistrictSearch = ({ districts, district, setDistrictNum }) => {
+/* The district selector doubles as the page title. Closed, it shows the district
+   number and member as a heading; clicking it opens a type-to-search picker
+   (matching district number or member name) — the flat 51-item dropdown was unwieldy. */
+const DistrictTitleSelector = ({ districts, district, setDistrictNum }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
 
@@ -168,19 +169,19 @@ const DistrictSearch = ({ districts, district, setDistrictNum }) => {
     );
   }, [query, districts]);
 
-  return (
-    <div className="relative w-72 max-w-full">
-      <SearchIcon size={13} className="absolute left-2.5 top-[11px] pointer-events-none text-gray-400" />
-      <input
-        type="text"
-        placeholder={open ? 'District number or member name…' : ''}
-        value={open ? query : `District ${district.district}${district.member ? ` — ${district.member}` : ''}`}
-        onChange={e => setQuery(e.target.value)}
-        onFocus={e => { setOpen(true); setQuery(''); e.target.value = ''; }}
-        onBlur={() => setTimeout(() => { setOpen(false); setQuery(''); }, 200)}
-        className={`w-full text-[12px] font-bold py-2 pl-8 pr-2 rounded border bg-white focus:outline-none truncate ${open ? 'border-indigo-400' : 'border-gray-300'}`}
-      />
-      {open && (
+  if (open) {
+    return (
+      <div className="relative w-80 max-w-full">
+        <SearchIcon size={14} className="absolute left-2.5 top-[11px] pointer-events-none text-gray-400" />
+        <input
+          type="text"
+          autoFocus
+          placeholder="District number or member name…"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          onBlur={() => setTimeout(() => { setOpen(false); setQuery(''); }, 200)}
+          className="w-full text-[14px] font-bold py-2 pl-8 pr-2 rounded border bg-white focus:outline-none border-indigo-400"
+        />
         <div className="absolute top-full left-0 w-full mt-1 bg-white border border-gray-200 shadow-xl rounded z-50 max-h-80 overflow-y-auto">
           {results.length === 0 && <div className="px-3 py-3 text-sm text-gray-500">No matches.</div>}
           {results.map(d => (
@@ -189,13 +190,26 @@ const DistrictSearch = ({ districts, district, setDistrictNum }) => {
               onMouseDown={() => { setDistrictNum(d.district); setOpen(false); setQuery(''); }}
               className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${d.district === district.district ? 'bg-gray-50' : ''}`}
             >
-              <span className="text-[12px] font-black text-black">District {d.district}</span>
-              {d.member && <span className="text-[12px] text-gray-500"> — {d.member}</span>}
+              <span className="text-[13px] font-black text-black">District {d.district}</span>
+              {d.member && <span className="text-[13px] text-gray-500"> — {d.member}</span>}
             </button>
           ))}
         </div>
-      )}
-    </div>
+      </div>
+    );
+  }
+
+  return (
+    <button onClick={() => { setOpen(true); setQuery(''); }} title="Change district" className="text-left group">
+      <div className="flex items-center gap-2">
+        <h2 className="text-2xl font-black font-serif group-hover:text-indigo-700 transition-colors">Council District {district.district}</h2>
+        <ChevronDown size={18} className="text-gray-400 group-hover:text-indigo-600" />
+      </div>
+      <div className="flex items-baseline gap-2 mt-0.5">
+        {district.member && <span className="text-[14px] font-serif text-gray-600">{district.member}</span>}
+        <span className="text-[12px] text-gray-400">· {district.precincts.length} precincts</span>
+      </div>
+    </button>
   );
 };
 
@@ -271,31 +285,23 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
   }, [f, district]);
 
   const changeCell = (t, key = '') => (
-    <td key={key} className="py-2.5 text-right tabular-nums text-[13px] font-bold" style={{ color: pctColor(t.pct) }}>
-      {typeof t.pct === 'number' ? formatPct(t.pct) : '—'}
-      {t.diff != null && <div className="text-[10px] font-normal text-gray-400">{t.diff > 0 ? '+' : ''}{Math.round(t.diff).toLocaleString()}</div>}
+    <td key={key} className="py-2.5 pl-3 text-right tabular-nums text-[13px] font-bold whitespace-nowrap" style={{ color: pctColor(t.pct) }}>
+      {typeof t.pct === 'number' ? dirPct(t.pct) : '—'}
+      {t.diff != null && <div className="text-[10px] font-normal text-gray-400">{dirCount(Math.round(t.diff))}</div>}
     </td>
   );
 
   return (
     <div>
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-2 gap-4">
-        <h2 className="text-2xl font-black font-serif">By Council District</h2>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button
-            onClick={() => setDistrictNum(district.district <= 1 ? 51 : district.district - 1)}
-            className="px-2.5 py-2 text-[11px] font-black border border-gray-300 rounded hover:bg-gray-50" aria-label="Previous district">←</button>
-          <DistrictSearch districts={districts} district={district} setDistrictNum={setDistrictNum} />
-          <button
-            onClick={() => setDistrictNum(district.district >= 51 ? 1 : district.district + 1)}
-            className="px-2.5 py-2 text-[11px] font-black border border-gray-300 rounded hover:bg-gray-50" aria-label="Next district">→</button>
-        </div>
-      </div>
-
-      <div className="mb-5 flex items-baseline gap-3 flex-wrap">
-        <h3 className="text-lg font-black">Council District {district.district}</h3>
-        {district.member && <span className="text-[14px] font-serif text-gray-600">{district.member}</span>}
-        <span className="text-[12px] text-gray-400">{district.precincts.length} precincts</span>
+      {/* The district selector is the page title */}
+      <div className="flex items-center gap-3 mb-6 flex-wrap">
+        <button
+          onClick={() => setDistrictNum(district.district <= 1 ? 51 : district.district - 1)}
+          className="px-2.5 py-2 text-[13px] font-black border border-gray-300 rounded hover:bg-gray-50 self-start mt-1" aria-label="Previous district">←</button>
+        <DistrictTitleSelector districts={districts} district={district} setDistrictNum={setDistrictNum} />
+        <button
+          onClick={() => setDistrictNum(district.district >= 51 ? 1 : district.district + 1)}
+          className="px-2.5 py-2 text-[13px] font-black border border-gray-300 rounded hover:bg-gray-50 self-start mt-1" aria-label="Next district">→</button>
       </div>
 
       {/* Auto-generated top-line findings */}
@@ -314,7 +320,7 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_1fr] gap-8 items-stretch">
         <DistrictMap district={district} onSelectPrecinct={onSelectPrecinct} />
 
         <div>

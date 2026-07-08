@@ -11,7 +11,7 @@ export default function About({ parsedData, fetchError }) {
       <h2 className="text-2xl font-black font-serif mb-6">About this project</h2>
 
       <p className="font-serif text-[16px] leading-relaxed text-gray-700 mb-8">
-        Published by <a href="https://vitalcitynyc.org/" className="underline hover:text-black" target="_blank" rel="noopener noreferrer">Vital City</a>, an independent New York policy journal. NYC Crime Breakdown reads the NYPD's weekly CompStat report and pairs it with NYC Open Data and Census figures to put the week's numbers in longer-run and geographic context. The project is open source; data refreshes every Monday after NYPD posts the new CompStat report.
+        Published by <a href="https://vitalcitynyc.org/" className="underline hover:text-black" target="_blank" rel="noopener noreferrer">Vital City</a>, an independent New York policy journal. NYC CompStat Decoder reads the NYPD's weekly CompStat report and pairs it with NYC Open Data and Census figures to put the week's numbers in longer-run and geographic context. The project is open source; data refreshes every Monday after NYPD posts the new CompStat report.
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10 text-[13px] text-gray-600">
