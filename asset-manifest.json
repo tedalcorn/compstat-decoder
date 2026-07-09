@@ -1,14 +1,14 @@
 {
   "files": {
-    "main.css": "/compstat-decoder/static/css/main.445d6a53.css",
-    "main.js": "/compstat-decoder/static/js/main.22185f01.js",
+    "main.css": "/compstat-decoder/static/css/main.ba8adaff.css",
+    "main.js": "/compstat-decoder/static/js/main.e20a154e.js",
     "static/media/vitalcity-logo.png": "/compstat-decoder/static/media/vitalcity-logo.81c973d7dac156a6e221.png",
     "index.html": "/compstat-decoder/index.html",
-    "main.445d6a53.css.map": "/compstat-decoder/static/css/main.445d6a53.css.map",
-    "main.22185f01.js.map": "/compstat-decoder/static/js/main.22185f01.js.map"
+    "main.ba8adaff.css.map": "/compstat-decoder/static/css/main.ba8adaff.css.map",
+    "main.e20a154e.js.map": "/compstat-decoder/static/js/main.e20a154e.js.map"
   },
   "entrypoints": [
-    "static/css/main.445d6a53.css",
-    "static/js/main.22185f01.js"
+    "static/css/main.ba8adaff.css",
+    "static/js/main.e20a154e.js"
   ]
 }
