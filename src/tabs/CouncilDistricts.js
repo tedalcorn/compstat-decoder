@@ -232,7 +232,7 @@ const DistrictMap = ({ district, onSelectPrecinct, shootings, showShootings, set
 
 
   return (
-    <div className={`relative ${printMode ? 'h-full' : 'w-full aspect-[14/13]'}`}>
+    <div className={`relative ${printMode ? 'h-full' : 'w-full h-[400px] lg:h-[600px]'}`}>
       {/* Shootings toggle (hidden in the print one-pager) */}
       {!printMode && (
         <button
@@ -500,7 +500,7 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
         <button
           onClick={() => setDistrictNum(district.district <= 1 ? 51 : district.district - 1)}
           className="px-2 sm:px-2.5 py-1.5 sm:py-2 text-[13px] font-black border border-gray-300 rounded hover:bg-gray-50 flex-shrink-0 mt-1" aria-label="Previous district">←</button>
-        <div className="flex-1 min-w-0"><DistrictTitleSelector districts={districts} district={district} setDistrictNum={setDistrictNum} /></div>
+        <div className="w-[440px] max-w-full"><DistrictTitleSelector districts={districts} district={district} setDistrictNum={setDistrictNum} /></div>
         <button
           onClick={() => setDistrictNum(district.district >= 51 ? 1 : district.district + 1)}
           className="px-2 sm:px-2.5 py-1.5 sm:py-2 text-[13px] font-black border border-gray-300 rounded hover:bg-gray-50 flex-shrink-0 mt-1" aria-label="Next district">→</button>
@@ -533,7 +533,9 @@ export default function CouncilDistricts({ rawData, activeTab, districtNum, setD
           coverageLabel={coverageLabel}
         />
 
-        <div>
+        {/* Fixed min-height (matches the map) keeps the row height constant across
+            districts, so the content below never bounces as precinct counts change. */}
+        <div className="lg:min-h-[600px]">
           <div className="flex items-baseline justify-between gap-3 mb-3">
             <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-500 leading-tight">Major felonies by precinct<br /><span className="text-gray-400">Year-on-year change (YTD)</span></h4>
             <div className="flex items-center gap-2 flex-shrink-0">
