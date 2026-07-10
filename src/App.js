@@ -20,7 +20,11 @@ const MAIN_TABS = [
   ['numbers', 'Crime Types'],
   ['precincts', 'By Precinct'],
   ['council', 'By Council District'],
-  ['transit', 'In Transit'],
+  // TRANSIT-REMOVED (2026-07-10, per Paul Reeping): the "In Transit" tab was dropped because its
+  // figures aren't from CompStat and don't map to a locality. To restore, uncomment this one line —
+  // the <Transit> component, its import, and its render branch below are all left intact.
+  // Full change set + restore steps: TRANSIT_REMOVAL.md at the repo root.
+  // ['transit', 'In Transit'],
   ['about', 'About'],
 ];
 const TAB_KEYS = ['headlines', ...MAIN_TABS.map(t => t[0])];
@@ -187,7 +191,12 @@ export default function App() {
       return { name, current: c, prior: p, pct, diff: c - p, hist: stats?.historical || {}, currentRate: pop ? (c / pop) * 100000 : null };
     });
     const felonies = extract(geoData.seven_major_felonies).sort((a, b) => b.current - a.current);
-    const minors = extract(geoData.additional_stats).sort((a, b) => b.current - a.current);
+    // TRANSIT-REMOVED (2026-07-10): drop the system-wide "Transit" bureau line so it never leaks
+    // into the Crime Types table or the Headlines pattern callouts. Delete the .filter() to restore.
+    // See TRANSIT_REMOVAL.md.
+    const minors = extract(geoData.additional_stats)
+      .filter(m => m.name !== 'Transit')
+      .sort((a, b) => b.current - a.current);
     const all = [...felonies, ...minors].sort((a, b) => b.current - a.current);
 
     let mCur = 0, mPri = 0, pCur = 0, vCur = 0, murder = 0, shootingVic = 0;
@@ -486,6 +495,8 @@ export default function App() {
             onSelectPrecinct={selectPrecinctForNumbers}
           />
         )}
+        {/* TRANSIT-REMOVED (2026-07-10): 'transit' is no longer in MAIN_TABS, so this branch is
+            currently unreachable. Kept intact (with the import above) for a one-line restore. */}
         {mainTab === 'transit' && (
           <Transit rawData={rawData} downloadCSV={downloadCSV} />
         )}

@@ -34,8 +34,8 @@ export default function About({ parsedData, fetchError }) {
         The core source is the NYPD&rsquo;s weekly CompStat 2.0 report, scraped
         from <A href="https://compstat.nypdonline.org/">compstat.nypdonline.org</A> by an automated pipeline each
         Monday after the NYPD posts it. The report covers the seven major felonies plus additional offenses
-        (shootings, misdemeanor assault, petit larceny, retail theft, hate crimes, and transit and housing
-        totals) for the city as a whole, the eight patrol boroughs, and all 77 precincts, with week,
+        (shootings, misdemeanor assault, petit larceny, retail theft, hate crimes, and housing totals)
+        for the city as a whole, the eight patrol boroughs, and all 77 precincts, with week,
         28-day, and year-to-date comparisons against the same period a year earlier.
       </P>
       <P>
@@ -54,15 +54,7 @@ export default function About({ parsedData, fetchError }) {
 
       <H>NYC Open Data</H>
       <P>
-        Three live queries go to the city&rsquo;s open data portal, each for a specific feature:
-      </P>
-      <P>
-        <strong>Transit offense breakdown.</strong> The by-offense table under In Transit queries the NYPD
-        complaint data, current year (<Code>5uac-w243</Code>) and historic (<Code>qgea-i56i</Code>), filtered
-        to complaints carrying a transit-district code, and compares the same calendar window in the prior
-        year. Complaint data is a different reporting stream from CompStat: it counts complaints as recorded
-        and is subject to revision, so these figures will not exactly match the CompStat transit totals shown
-        above them.
+        Two live queries go to the city&rsquo;s open data portal, each for a specific feature:
       </P>
       <P>
         <strong>Shooting incidents.</strong> The map under By Council District plots the NYPD Shooting
@@ -73,15 +65,6 @@ export default function About({ parsedData, fetchError }) {
         <strong>Precinct locator.</strong> The &ldquo;locate me&rdquo; button checks the visitor&rsquo;s
         position against the police precinct boundary file (<Code>78dh-3ptz</Code>) to select a precinct.
         Location is used for that lookup only and is not stored.
-      </P>
-
-      <H>Transit homicides</H>
-      <P>
-        Murders are never coded to a transit district in the complaint-level extract (in 2024, none of the
-        382 citywide murder complaints carried one), so the transit homicide figures under In Transit
-        cannot come from the query above. They are hand-entered full-year counts, 2022 through 2025, taken
-        from NYPD year-end announcements and contemporaneous coverage, with each source cited alongside them.
-        They are not a live feed and update only when edited.
       </P>
 
       <H>Peer cities</H>
