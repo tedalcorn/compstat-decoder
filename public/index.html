@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#000000" />
     <meta
       name="description"
-      content="Web site created using create-react-app"
+      content="The NYPD's weekly CompStat crime report, decoded and put in geographic and long-run context. A Vital City project."
     />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <!--
@@ -24,7 +24,18 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
-    <title>CompStat in Context</title>
+    <title>Vital City - CompStat Decoder</title>
+
+    <!-- Open Graph / social + Mail rich-link preview. Mail doesn't run JS, so these
+         static tags (not the dynamic document.title set in App.js) drive the preview. -->
+    <meta property="og:title" content="Vital City - CompStat Decoder" />
+    <meta property="og:site_name" content="Vital City" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://tedalcorn.org/compstat-decoder" />
+    <meta property="og:description" content="The NYPD's weekly CompStat crime report, decoded and put in geographic and long-run context. A Vital City project." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Vital City - CompStat Decoder" />
+    <meta name="twitter:description" content="The NYPD's weekly CompStat crime report, decoded and put in geographic and long-run context. A Vital City project." />
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
