@@ -331,8 +331,8 @@ export default function Headlines({ parsedData, hotspots, rawData, activeTab, ac
     <div>
       {isTouristPrecinct && <div className="mb-6 p-4 bg-gray-50 border-l-4 border-gray-400 text-sm font-serif italic text-gray-700"><strong>Context Note:</strong> {formatGeoName(activeGeo)} is a high-traffic hub with few residents; crime rates primarily reflect commercial/visitor density.</div>}
 
-      <div className="lg:grid lg:grid-cols-3 lg:gap-6 mb-7">
-        <p className="lg:col-span-2 font-serif text-[16px] leading-relaxed text-gray-700 font-medium">
+      <div className="mb-7">
+        <p className="font-serif text-[17px] lg:text-[18px] leading-relaxed text-gray-700 font-medium text-justify sm:text-left hyphens-auto">
           Every week the New York City Police Department updates data on reported crime in precincts across the city, in a process known as CompStat. This page decodes that data so that no matter where you are in the city, you can understand how crime is changing near you.
         </p>
       </div>
@@ -363,7 +363,7 @@ export default function Headlines({ parsedData, hotspots, rawData, activeTab, ac
                   <div className={i === 0 ? 'text-[15px] font-black leading-tight' : 'text-[13px] font-bold text-gray-700 leading-tight'}>{s.label}</div>
                   <div className="text-[11px] text-gray-400 leading-tight mt-0.5">{s.sub}</div>
                 </div>
-                <span className={`tabular-nums font-black ml-auto sm:ml-0 text-right sm:text-left w-24 sm:w-28 whitespace-nowrap ${i === 0 ? 'text-[20px]' : 'text-[16px]'}`} style={{ color: (s.pct ?? 0) > 0 ? '#c2410c' : (s.pct ?? 0) < 0 ? '#15803d' : '#374151' }}>
+                <span className={`tabular-nums font-black ml-auto sm:ml-0 text-right sm:text-left w-24 sm:w-28 whitespace-nowrap ${i === 0 ? 'text-[16px] sm:text-[20px]' : 'text-[16px]'}`} style={{ color: (s.pct ?? 0) > 0 ? '#c2410c' : (s.pct ?? 0) < 0 ? '#15803d' : '#374151' }}>
                   {dirPct(s.pct)}
                 </span>
                 <span className="text-[12px] sm:text-[13px] text-gray-600 tabular-nums basis-full sm:basis-auto">

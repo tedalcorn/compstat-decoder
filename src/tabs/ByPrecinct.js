@@ -240,26 +240,26 @@ export default function ByPrecinct({ precinctRates, mapMode, setMapMode, mapCrim
           with the individual offenses in lighter pills below. No page title; the nav
           shows where you are. */}
       <div className="flex flex-col gap-1.5 mb-6">
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Every control row spans the full width with equal margins on both sides;
+            buttons flex to fill so the rows read as neat, aligned bands. */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           {/* Measure — binary toggle, pill-shaped */}
-          <div className="inline-flex gap-1 bg-gray-100 p-1 rounded-full border border-gray-200">
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-full border border-gray-200 w-full sm:flex-1">
             {[['rate', 'Rate per 100k'], ['change', '% Change']].map(([val, label]) => (
-              <button key={val} onClick={() => setMapMode(val)} className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-colors ${mapMode === val ? 'bg-white shadow-sm text-black' : 'text-gray-500 hover:text-black'}`}>{label}</button>
+              <button key={val} onClick={() => setMapMode(val)} className={`flex-1 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-colors ${mapMode === val ? 'bg-white shadow-sm text-black' : 'text-gray-500 hover:text-black'}`}>{label}</button>
             ))}
           </div>
-          <span className="w-px h-6 bg-gray-200 mx-1 hidden sm:block" />
-          {/* Crime categories — square pills. On mobile they wrap onto their own line
-              together (w-full) so All Major / Violent / Property stay grouped. */}
-          <div className="flex gap-2 w-full sm:w-auto">
+          {/* Crime categories — square pills, stretched to fill their half of the row */}
+          <div className="flex gap-2 w-full sm:flex-1">
             {CATEGORY_PILLS.map(([val, label]) => (
-              <button key={val} onClick={() => setMapCrime(val)} className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-sm border transition-colors ${mapCrime === val ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-100 text-gray-600 border-gray-200 hover:text-black'}`}>{label}</button>
+              <button key={val} onClick={() => setMapCrime(val)} className={`flex-1 px-3.5 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-sm border transition-colors ${mapCrime === val ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-100 text-gray-600 border-gray-200 hover:text-black'}`}>{label}</button>
             ))}
           </div>
         </div>
-        {/* Individual offenses below in lighter type */}
-        <div className="flex gap-1 flex-wrap">
+        {/* Individual offenses below in lighter type — 3-up grid on mobile, one even row on desktop */}
+        <div className="grid grid-cols-3 sm:flex gap-1">
           {OFFENSE_PILLS.map(([val, label]) => (
-            <button key={val} onClick={() => setMapCrime(val)} className={`px-2.5 py-1 text-[10px] font-medium normal-case rounded-sm border transition-colors ${mapCrime === val ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:text-black hover:border-gray-400'}`}>{label}</button>
+            <button key={val} onClick={() => setMapCrime(val)} className={`sm:flex-1 px-2.5 py-1 text-[10px] font-medium normal-case rounded-sm border transition-colors ${mapCrime === val ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:text-black hover:border-gray-400'}`}>{label}</button>
           ))}
         </div>
       </div>

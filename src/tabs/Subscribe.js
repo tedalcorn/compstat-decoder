@@ -217,7 +217,7 @@ export default function SubscribeBand({ district, districts, f, rows, period }) 
     <form onSubmit={submit} className="mt-10 rounded-sm p-6" style={{ background: VC_CITRON }}>
       {/* Title row: bold title + address link in parentheses */}
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mb-4">
-        <h4 className="text-[19px] font-black font-serif text-black leading-tight">
+        <h4 className="text-[16px] sm:text-[19px] font-black font-serif text-black leading-tight">
           Subscribe for updates on crime trends in Council District {effective.district}
         </h4>
         {!addressMode && (
@@ -253,21 +253,22 @@ export default function SubscribeBand({ district, districts, f, rows, period }) 
         </div>
       )}
 
-      {/* Input row: email, cadence segmented control, sign up */}
+      {/* Input row: email, cadence segmented control, sign up. On mobile each control
+          fills the citron box edge-to-edge (equal left/right margins); inline on desktop. */}
       <div className="flex flex-wrap items-stretch gap-x-3 gap-y-2">
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
           placeholder="Your email address"
-          className="w-[240px] border border-gray-800 bg-white px-3 py-2 text-[13px] focus:outline-none" />
-        <div className="flex border border-gray-800 bg-white">
+          className="w-full sm:w-[240px] border border-gray-800 bg-white px-3 py-2 text-[13px] focus:outline-none" />
+        <div className="flex w-full sm:w-auto border border-gray-800 bg-white">
           {CADENCES.map(c => (
             <button key={c} type="button" onClick={() => setCadence(c)}
-              className={`px-3 text-[11px] font-black uppercase tracking-widest ${cadence === c ? 'bg-black text-white' : 'text-black hover:bg-black/5'}`}>
+              className={`flex-1 sm:flex-none px-3 py-2 text-[11px] font-black uppercase tracking-widest ${cadence === c ? 'bg-black text-white' : 'text-black hover:bg-black/5'}`}>
               {c}
             </button>
           ))}
         </div>
         <button type="submit" disabled={!emailOk}
-          className="text-[11px] font-black uppercase tracking-widest text-white bg-black px-5 disabled:opacity-40">
+          className="w-full sm:w-auto text-[11px] font-black uppercase tracking-widest text-white bg-black px-5 py-2.5 disabled:opacity-40">
           Sign up
         </button>
       </div>
